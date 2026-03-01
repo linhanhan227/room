@@ -3,7 +3,7 @@ package com.chat.room.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.SQLDelete;
-import org.hibernate.annotations.Where;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDateTime;
 
@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 @Builder
 @IdClass(RoomMemberId.class)
 @SQLDelete(sql = "UPDATE room_members SET deleted = true WHERE room_id = ? AND user_id = ?")
-@Where(clause = "deleted = false")
+@SQLRestriction("deleted = false")
 public class RoomMember {
 
     @Id

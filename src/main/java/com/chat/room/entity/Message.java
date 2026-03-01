@@ -3,7 +3,7 @@ package com.chat.room.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.SQLDelete;
-import org.hibernate.annotations.Where;
+import org.hibernate.annotations.SQLRestriction;
 
 @Entity
 @Table(name = "messages")
@@ -13,7 +13,7 @@ import org.hibernate.annotations.Where;
 @AllArgsConstructor
 @Builder
 @SQLDelete(sql = "UPDATE messages SET deleted = true WHERE id = ?")
-@Where(clause = "deleted = false")
+@SQLRestriction("deleted = false")
 public class Message extends BaseEntity {
 
     @Id
