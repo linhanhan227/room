@@ -38,18 +38,18 @@ public class AdminService {
     public BannedUserDTO banUser(BanUserRequest request) {
         User currentUser = getCurrentUser();
         User targetUser = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("User", request.getUserId()));
+                .orElseThrow(() -> new ResourceNotFoundException("用户", request.getUserId()));
 
         if (targetUser.getRole() == User.UserRole.ADMIN) {
-            throw new ForbiddenException("Cannot ban admin user");
+            throw new ForbiddenException("不能封禁管理员用户");
         }
 
         if (bannedUserRepository.isUserBanned(request.getUserId(), LocalDateTime.now())) {
-            throw new BusinessException("User is already banned");
+            throw new BusinessException("用户已被封禁");
         }
 
         if (request.getType() == BannedUser.BanType.TEMPORARY && request.getEndTime() == null) {
-            throw new BusinessException("End time is required for temporary ban");
+            throw new BusinessException("临时封禁需要指定结束时间");
         }
 
         BannedUser bannedUser = BannedUser.builder()
@@ -76,11 +76,11 @@ public class AdminService {
     public void unbanUser(Long userId) {
         User currentUser = getCurrentUser();
         User targetUser = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+                .orElseThrow(() -> new ResourceNotFoundException("用户", userId));
 
         int updated = bannedUserRepository.unbanUser(userId);
         if (updated == 0) {
-            throw new BusinessException("User is not banned");
+            throw new BusinessException("用户未被封禁");
         }
 
         logOperation("UNBAN_USER", "User", targetUser.getId(), 
@@ -106,10 +106,10 @@ public class AdminService {
     public void setUserRole(Long userId, User.UserRole role) {
         User currentUser = getCurrentUser();
         User targetUser = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", userId));
+                .orElseThrow(() -> new ResourceNotFoundException("用户", userId));
 
         if (currentUser.getId().equals(userId)) {
-            throw new BusinessException("Cannot change your own role");
+            throw new BusinessException("不能修改自己的角色");
         }
 
         targetUser.setRole(role);

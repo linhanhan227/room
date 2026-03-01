@@ -38,11 +38,11 @@ public class UserService {
     @Transactional
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByUsername(request.getUsername())) {
-            throw new BusinessException("Username is already taken");
+            throw new BusinessException("用户名已被使用");
         }
 
         if (request.getEmail() != null && userRepository.existsByEmail(request.getEmail())) {
-            throw new BusinessException("Email is already in use");
+            throw new BusinessException("邮箱已被使用");
         }
 
         User user = User.builder()
@@ -158,7 +158,7 @@ public class UserService {
         }
         if (email != null) {
             if (!email.equals(user.getEmail()) && userRepository.existsByEmail(email)) {
-                throw new BusinessException("Email is already in use");
+                throw new BusinessException("邮箱已被使用");
             }
             user.setEmail(email);
         }

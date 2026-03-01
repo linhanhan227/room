@@ -22,7 +22,7 @@ public class MessageController {
     @PostMapping
     public ResponseEntity<ApiResponse<MessageDTO>> sendMessage(@Valid @RequestBody SendMessageRequest request) {
         MessageDTO message = messageService.sendMessage(request);
-        return ResponseEntity.ok(ApiResponse.success("Message sent successfully", message));
+        return ResponseEntity.ok(ApiResponse.success("消息发送成功", message));
     }
 
     @GetMapping("/room/{roomId}")
@@ -57,7 +57,7 @@ public class MessageController {
     @DeleteMapping("/{messageId}")
     public ResponseEntity<ApiResponse<Void>> deleteMessage(@PathVariable Long messageId) {
         messageService.deleteMessage(messageId);
-        return ResponseEntity.ok(ApiResponse.success("Message deleted successfully", null));
+        return ResponseEntity.ok(ApiResponse.success("消息删除成功", null));
     }
 
     @GetMapping("/room/{roomId}/count")

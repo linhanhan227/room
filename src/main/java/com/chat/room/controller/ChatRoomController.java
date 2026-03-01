@@ -31,7 +31,7 @@ public class ChatRoomController {
     @PostMapping
     public ResponseEntity<ApiResponse<ChatRoomDTO>> createRoom(@Valid @RequestBody CreateRoomRequest request) {
         ChatRoomDTO room = chatRoomService.createRoom(request);
-        return ResponseEntity.ok(ApiResponse.success("Room created successfully", room));
+        return ResponseEntity.ok(ApiResponse.success("聊天室创建成功", room));
     }
 
     @PostMapping("/{roomId}/join")
@@ -39,19 +39,19 @@ public class ChatRoomController {
             @PathVariable Long roomId,
             @RequestParam(required = false) String password) {
         ChatRoomDTO room = chatRoomService.joinRoom(roomId, password);
-        return ResponseEntity.ok(ApiResponse.success("Joined room successfully", room));
+        return ResponseEntity.ok(ApiResponse.success("加入聊天室成功", room));
     }
 
     @PostMapping("/{roomId}/leave")
     public ResponseEntity<ApiResponse<Void>> leaveRoom(@PathVariable Long roomId) {
         chatRoomService.leaveRoom(roomId);
-        return ResponseEntity.ok(ApiResponse.success("Left room successfully", null));
+        return ResponseEntity.ok(ApiResponse.success("退出聊天室成功", null));
     }
 
     @DeleteMapping("/{roomId}")
     public ResponseEntity<ApiResponse<Void>> deleteRoom(@PathVariable Long roomId) {
         chatRoomService.deleteRoom(roomId);
-        return ResponseEntity.ok(ApiResponse.success("Room deleted successfully", null));
+        return ResponseEntity.ok(ApiResponse.success("聊天室删除成功", null));
     }
 
     @GetMapping("/{roomId}")
@@ -99,7 +99,7 @@ public class ChatRoomController {
             @PathVariable Long roomId,
             @PathVariable Long userId) {
         chatRoomService.kickMember(roomId, userId);
-        return ResponseEntity.ok(ApiResponse.success("Member kicked successfully", null));
+        return ResponseEntity.ok(ApiResponse.success("成员踢出成功", null));
     }
 
     @PutMapping("/{roomId}/members/{userId}/role")
@@ -108,7 +108,7 @@ public class ChatRoomController {
             @PathVariable Long userId,
             @RequestParam RoomMember.MemberRole role) {
         chatRoomService.setMemberRole(roomId, userId, role);
-        return ResponseEntity.ok(ApiResponse.success("Member role updated successfully", null));
+        return ResponseEntity.ok(ApiResponse.success("成员角色更新成功", null));
     }
 
     @PutMapping("/{roomId}")
@@ -116,7 +116,7 @@ public class ChatRoomController {
             @PathVariable Long roomId,
             @Valid @RequestBody CreateRoomRequest request) {
         ChatRoomDTO room = chatRoomService.updateRoom(roomId, request);
-        return ResponseEntity.ok(ApiResponse.success("Room updated successfully", room));
+        return ResponseEntity.ok(ApiResponse.success("聊天室更新成功", room));
     }
 
     @GetMapping("/recommendations")

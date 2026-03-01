@@ -92,7 +92,7 @@ public class MessageService {
     @Transactional
     public MessageDTO sendMessageWithFilter(Long roomId, Long senderId, String content, Message.MessageType type) {
         if (bannedUserRepository.isUserBanned(senderId, LocalDateTime.now())) {
-            throw new BusinessException("User is banned from sending messages");
+            throw new BusinessException("用户已被禁止发送消息");
         }
 
         return saveMessage(roomId, senderId, content, type);
@@ -130,7 +130,7 @@ public class MessageService {
                 .orElseThrow(() -> new ResourceNotFoundException("Message", messageId));
 
         if (!message.getSender().getId().equals(user.getId())) {
-            throw new BusinessException("You can only delete your own messages");
+            throw new BusinessException("您只能删除自己的消息");
         }
 
         messageRepository.delete(message);

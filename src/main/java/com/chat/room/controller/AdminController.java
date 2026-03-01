@@ -55,19 +55,19 @@ public class AdminController {
             @PathVariable Long userId,
             @RequestParam User.UserRole role) {
         adminService.setUserRole(userId, role);
-        return ResponseEntity.ok(ApiResponse.success("User role updated successfully", null));
+        return ResponseEntity.ok(ApiResponse.success("用户角色更新成功", null));
     }
 
     @PostMapping("/users/ban")
     public ResponseEntity<ApiResponse<BannedUserDTO>> banUser(@Valid @RequestBody BanUserRequest request) {
         BannedUserDTO bannedUser = adminService.banUser(request);
-        return ResponseEntity.ok(ApiResponse.success("User banned successfully", bannedUser));
+        return ResponseEntity.ok(ApiResponse.success("用户封禁成功", bannedUser));
     }
 
     @DeleteMapping("/users/{userId}/ban")
     public ResponseEntity<ApiResponse<Void>> unbanUser(@PathVariable Long userId) {
         adminService.unbanUser(userId);
-        return ResponseEntity.ok(ApiResponse.success("User unbanned successfully", null));
+        return ResponseEntity.ok(ApiResponse.success("用户解封成功", null));
     }
 
     @GetMapping("/users/banned")
@@ -97,19 +97,19 @@ public class AdminController {
     @DeleteMapping("/rooms/{roomId}")
     public ResponseEntity<ApiResponse<Void>> deleteRoom(@PathVariable Long roomId) {
         adminService.deleteRoom(roomId);
-        return ResponseEntity.ok(ApiResponse.success("Room deleted successfully", null));
+        return ResponseEntity.ok(ApiResponse.success("聊天室删除成功", null));
     }
 
     @PutMapping("/rooms/{roomId}/archive")
     public ResponseEntity<ApiResponse<Void>> archiveRoom(@PathVariable Long roomId) {
         adminService.archiveRoom(roomId);
-        return ResponseEntity.ok(ApiResponse.success("Room archived successfully", null));
+        return ResponseEntity.ok(ApiResponse.success("聊天室归档成功", null));
     }
 
     @DeleteMapping("/messages/{messageId}")
     public ResponseEntity<ApiResponse<Void>> deleteMessage(@PathVariable Long messageId) {
         adminService.deleteMessage(messageId);
-        return ResponseEntity.ok(ApiResponse.success("Message deleted successfully", null));
+        return ResponseEntity.ok(ApiResponse.success("消息删除成功", null));
     }
 
     @GetMapping("/logs")

@@ -22,18 +22,18 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest request) {
         AuthResponse response = userService.register(request);
-        return ResponseEntity.ok(ApiResponse.success("User registered successfully", response));
+        return ResponseEntity.ok(ApiResponse.success("用户注册成功", response));
     }
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
         AuthResponse response = userService.login(request);
-        return ResponseEntity.ok(ApiResponse.success("Login successful", response));
+        return ResponseEntity.ok(ApiResponse.success("登录成功", response));
     }
 
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout() {
         userService.logout(userService.getCurrentUserId());
-        return ResponseEntity.ok(ApiResponse.success("Logout successful", null));
+        return ResponseEntity.ok(ApiResponse.success("登出成功", null));
     }
 }

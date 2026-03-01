@@ -66,7 +66,7 @@ public class UserController {
             @RequestParam(required = false) String avatar,
             @RequestParam(required = false) String email) {
         UserDTO user = userService.updateProfile(userService.getCurrentUserId(), nickname, avatar, email);
-        return ResponseEntity.ok(ApiResponse.success("Profile updated successfully", user));
+        return ResponseEntity.ok(ApiResponse.success("个人资料更新成功", user));
     }
 
     @PutMapping("/me/password")
@@ -74,7 +74,7 @@ public class UserController {
             @RequestParam String oldPassword,
             @RequestParam String newPassword) {
         userService.changePassword(userService.getCurrentUserId(), oldPassword, newPassword);
-        return ResponseEntity.ok(ApiResponse.success("Password changed successfully", null));
+        return ResponseEntity.ok(ApiResponse.success("密码修改成功", null));
     }
 
     @PutMapping("/{id}/status")
@@ -82,6 +82,6 @@ public class UserController {
             @PathVariable Long id,
             @RequestParam User.UserStatus status) {
         UserDTO user = userService.updateUserStatus(id, status);
-        return ResponseEntity.ok(ApiResponse.success("Status updated successfully", user));
+        return ResponseEntity.ok(ApiResponse.success("状态更新成功", user));
     }
 }

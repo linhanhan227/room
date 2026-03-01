@@ -176,7 +176,7 @@ Authorization: Bearer <token>
 ```json
 {
   "success": true,
-  "message": "Operation successful",
+  "message": "操作成功",
   "data": {
     "content": [],
     "pageable": {
@@ -275,7 +275,7 @@ Authorization: Bearer <token>
 ```json
 {
   "success": true,
-  "message": "User registered successfully",
+  "message": "用户注册成功",
   "data": {
     "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     "tokenType": "Bearer",
@@ -346,7 +346,7 @@ Authorization: Bearer <token>
 ```json
 {
   "success": true,
-  "message": "Login successful",
+  "message": "登录成功",
   "data": {
     "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     "tokenType": "Bearer",
@@ -396,7 +396,7 @@ Authorization: Bearer <token>
 ```json
 {
   "success": true,
-  "message": "Logout successful",
+  "message": "登出成功",
   "data": null,
   "timestamp": 1700000000000
 }
@@ -1273,7 +1273,7 @@ PUT /users/me?nickname=新昵称&avatar=https://example.com/new-avatar.png
 ```json
 {
   "success": true,
-  "message": "Profile updated successfully",
+  "message": "个人资料更新成功",
   "data": {
     "id": 1,
     "username": "testuser",
@@ -1316,7 +1316,7 @@ PUT /users/me/password?oldPassword=old123&newPassword=new456
 ```json
 {
   "success": true,
-  "message": "Password changed successfully",
+  "message": "密码修改成功",
   "data": null,
   "timestamp": 1700000000000
 }
@@ -1361,7 +1361,7 @@ PUT /users/1/status?status=BUSY
 ```json
 {
   "success": true,
-  "message": "Status updated successfully",
+  "message": "状态更新成功",
   "data": {
     "id": 1,
     "username": "testuser",
@@ -1425,7 +1425,7 @@ PUT /users/1/status?status=BUSY
 ```json
 {
   "success": true,
-  "message": "Room created successfully",
+  "message": "聊天室创建成功",
   "data": {
     "id": 1,
     "name": "技术交流群",
@@ -1484,7 +1484,7 @@ POST /rooms/1/join?password=room123
 ```json
 {
   "success": true,
-  "message": "Joined room successfully",
+  "message": "加入聊天室成功",
   "data": {
     "id": 1,
     "name": "技术交流群",
@@ -1532,7 +1532,7 @@ POST /rooms/1/join?password=room123
 ```json
 {
   "success": true,
-  "message": "Left room successfully",
+  "message": "退出聊天室成功",
   "data": null,
   "timestamp": 1700000000000
 }
@@ -1559,7 +1559,7 @@ POST /rooms/1/join?password=room123
 ```json
 {
   "success": true,
-  "message": "Room deleted successfully",
+  "message": "聊天室删除成功",
   "data": null,
   "timestamp": 1700000000000
 }
@@ -1831,7 +1831,7 @@ GET /rooms/search?keyword=技术&page=0&size=10
 ```json
 {
   "success": true,
-  "message": "Member kicked successfully",
+  "message": "成员踢出成功",
   "data": null,
   "timestamp": 1700000000000
 }
@@ -1879,7 +1879,7 @@ PUT /rooms/1/members/2/role?role=ADMIN
 ```json
 {
   "success": true,
-  "message": "Member role updated successfully",
+  "message": "成员角色更新成功",
   "data": null,
   "timestamp": 1700000000000
 }
@@ -1919,7 +1919,7 @@ PUT /rooms/1/members/2/role?role=ADMIN
 ```json
 {
   "success": true,
-  "message": "Room updated successfully",
+  "message": "聊天室更新成功",
   "data": {
     "id": 1,
     "name": "新名称",
@@ -2083,7 +2083,7 @@ GET /rooms/recommendations?strategy=POPULARITY&limit=5
 ```json
 {
   "success": true,
-  "message": "Message sent successfully",
+  "message": "消息发送成功",
   "data": {
     "id": 1,
     "roomId": 1,
@@ -2294,7 +2294,7 @@ GET /messages/room/1/search?keyword=Hello&page=0&size=20
 ```json
 {
   "success": true,
-  "message": "Message deleted successfully",
+  "message": "消息删除成功",
   "data": null,
   "timestamp": 1700000000000
 }
@@ -2482,7 +2482,7 @@ PUT /admin/users/1/role?role=ADMIN
 ```json
 {
   "success": true,
-  "message": "User role updated successfully",
+  "message": "用户角色更新成功",
   "data": null,
   "timestamp": 1700000000000
 }
@@ -2531,7 +2531,7 @@ PUT /admin/users/1/role?role=ADMIN
 ```json
 {
   "success": true,
-  "message": "User banned successfully",
+  "message": "用户封禁成功",
   "data": {
     "id": 1,
     "userId": 123,
@@ -2570,7 +2570,7 @@ PUT /admin/users/1/role?role=ADMIN
 ```json
 {
   "success": true,
-  "message": "User unbanned successfully",
+  "message": "用户解封成功",
   "data": null,
   "timestamp": 1700000000000
 }
@@ -2751,7 +2751,7 @@ GET /admin/users/banned?page=0&size=10
 ```json
 {
   "success": true,
-  "message": "Room archived successfully",
+  "message": "聊天室归档成功",
   "data": null,
   "timestamp": 1700000000000
 }

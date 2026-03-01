@@ -16,7 +16,7 @@ public class ApiResponse<T> {
     public static <T> ApiResponse<T> success(T data) {
         return ApiResponse.<T>builder()
                 .success(true)
-                .message("Operation successful")
+                .message("操作成功")
                 .data(data)
                 .timestamp(System.currentTimeMillis())
                 .build();

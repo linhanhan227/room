@@ -40,7 +40,7 @@ public class ChatRoomService {
         User owner = getCurrentUser();
 
         if (chatRoomRepository.existsByName(request.getName())) {
-            throw new BusinessException("Room name is already taken");
+            throw new BusinessException("聊天室名称已被使用");
         }
 
         ChatRoom room = ChatRoom.builder()
@@ -75,22 +75,22 @@ public class ChatRoomService {
                 .orElseThrow(() -> new ResourceNotFoundException("Room", roomId));
 
         if (room.getStatus() != ChatRoom.RoomStatus.ACTIVE) {
-            throw new BusinessException("Room is not active");
+            throw new BusinessException("聊天室未激活");
         }
 
         if (room.getType() == ChatRoom.RoomType.PRIVATE) {
             if (password == null || !java.util.Objects.equals(password, room.getPassword())) {
-                throw new BusinessException("Invalid room password");
+                throw new BusinessException("聊天室密码错误");
             }
         }
 
         if (roomMemberRepository.existsByRoomIdAndUserId(roomId, user.getId())) {
-            throw new BusinessException("You are already a member of this room");
+            throw new BusinessException("您已经是该聊天室的成员");
         }
 
         int memberCount = chatRoomRepository.countMembersByRoomId(roomId);
         if (memberCount >= room.getMaxMembers()) {
-            throw new BusinessException("Room is full");
+            throw new BusinessException("聊天室已满员");
         }
 
         RoomMember roomMember = RoomMember.builder()
@@ -112,11 +112,11 @@ public class ChatRoomService {
                 .orElseThrow(() -> new ResourceNotFoundException("Room", roomId));
 
         if (!roomMemberRepository.existsByRoomIdAndUserId(roomId, user.getId())) {
-            throw new BusinessException("You are not a member of this room");
+            throw new BusinessException("您不是该聊天室的成员");
         }
 
         if (room.getOwner().getId().equals(user.getId())) {
-            throw new BusinessException("Room owner cannot leave. Transfer ownership or delete the room.");
+            throw new BusinessException("聊天室所有者不能退出，请转让所有权或删除聊天室");
         }
 
         roomMemberRepository.deleteByRoomIdAndUserId(roomId, user.getId());
@@ -199,7 +199,7 @@ public class ChatRoomService {
                 .orElseThrow(() -> new BusinessException("You are not a member of this room"));
 
         if (currentRole != RoomMember.MemberRole.OWNER && currentRole != RoomMember.MemberRole.ADMIN) {
-            throw new ForbiddenException("You don't have permission to kick members");
+            throw new ForbiddenException("您没有权限踢出成员");
         }
 
         if (room.getOwner().getId().equals(userId)) {
@@ -215,8 +215,8 @@ public class ChatRoomService {
         ChatRoom room = chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new ResourceNotFoundException("Room", roomId));
 
-        if (!room.getOwner().getId().equals(currentUser.getId())) {
-            throw new ForbiddenException("Only room owner can change member roles");
+        if (!room.getOwner().getId().equals(user.getId())) {
+            throw new ForbiddenException("只有聊天室所有者可以修改成员角色");
         }
 
         RoomMember roomMember = roomMemberRepository.findByRoomIdAndUserId(roomId, userId)
@@ -233,12 +233,12 @@ public class ChatRoomService {
                 .orElseThrow(() -> new ResourceNotFoundException("Room", roomId));
 
         if (!room.getOwner().getId().equals(user.getId())) {
-            throw new ForbiddenException("Only room owner can update the room");
+            throw new ForbiddenException("只有聊天室所有者可以更新聊天室");
         }
 
         if (request.getName() != null && !request.getName().equals(room.getName())) {
             if (chatRoomRepository.existsByName(request.getName())) {
-                throw new BusinessException("Room name is already taken");
+                throw new BusinessException("聊天室名称已被使用");
             }
             room.setName(request.getName());
         }
