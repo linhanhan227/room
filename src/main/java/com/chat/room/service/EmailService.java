@@ -107,17 +107,17 @@ public class EmailService {
             throw new BusinessException(String.format("今日发送邮件次数已达上限(%d次)，请明天再试", dailyMaxCount));
         }
 
-        EmailSendLog log = emailSendLogRepository.findByEmailAndSendDate(email, today)
+        EmailSendLog emailLog = emailSendLogRepository.findByEmailAndSendDate(email, today)
                 .orElse(null);
         
-        if (log == null) {
-            log = EmailSendLog.builder()
+        if (emailLog == null) {
+            emailLog = EmailSendLog.builder()
                     .email(email)
                     .type(type)
                     .sendDate(today)
                     .sendCount(1)
                     .build();
-            emailSendLogRepository.save(log);
+            emailSendLogRepository.save(emailLog);
         } else {
             emailSendLogRepository.incrementSendCount(email, today);
         }

@@ -79,7 +79,7 @@ public class ChatRoomService {
         }
 
         if (room.getType() == ChatRoom.RoomType.PRIVATE) {
-            if (password == null || !password.equals(room.getPassword())) {
+            if (password == null || !java.util.Objects.equals(password, room.getPassword())) {
                 throw new BusinessException("Invalid room password");
             }
         }
