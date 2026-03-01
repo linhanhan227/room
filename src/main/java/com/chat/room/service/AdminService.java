@@ -202,7 +202,7 @@ public class AdminService {
                 .count();
         Long totalMessages = messageRepository.count();
         Long bannedUsers = (long) bannedUserRepository.findByActiveTrue(Pageable.unpaged()).getContent().size();
-        int sensitiveWordCount = sensitiveWordService.getSensitiveWordCount();
+        Long sensitiveWordCount = (long) sensitiveWordService.getSensitiveWordCount();
 
         LocalDateTime todayStart = LocalDate.now().atStartOfDay();
         Long todayMessages = messageRepository.findAll().stream()

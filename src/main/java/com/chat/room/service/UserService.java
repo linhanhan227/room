@@ -75,7 +75,7 @@ public class UserService {
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         User user = userRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new ResourceNotFoundException("User", request.getUsername()));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with username: " + request.getUsername()));
 
         if (bannedUserRepository.isUserBanned(user.getId(), LocalDateTime.now())) {
             throw new BusinessException("Your account has been banned");
