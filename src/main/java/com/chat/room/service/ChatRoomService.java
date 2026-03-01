@@ -215,7 +215,7 @@ public class ChatRoomService {
         ChatRoom room = chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new ResourceNotFoundException("Room", roomId));
 
-        if (!room.getOwner().getId().equals(user.getId())) {
+        if (!room.getOwner().getId().equals(currentUser.getId())) {
             throw new ForbiddenException("只有聊天室所有者可以修改成员角色");
         }
 
