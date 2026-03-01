@@ -56,6 +56,10 @@ email:
     subject: 邮箱验证码 - 聊天室
     code-expiration: 300
     code-length: 6
+  daily-limit:
+    enabled: true
+    max-count: 10
+    reset-hour: 0
 
 sensitive-word:
   file-path: sensitive_words.txt

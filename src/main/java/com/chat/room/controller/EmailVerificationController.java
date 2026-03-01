@@ -4,6 +4,7 @@ import com.chat.room.dto.ApiResponse;
 import com.chat.room.dto.SendVerificationCodeRequest;
 import com.chat.room.dto.VerifyEmailRequest;
 import com.chat.room.entity.EmailVerification;
+import com.chat.room.service.EmailService;
 import com.chat.room.service.EmailVerificationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 public class EmailVerificationController {
 
     private final EmailVerificationService verificationService;
+    private final EmailService emailService;
 
     @PostMapping("/verification/send")
     public ResponseEntity<ApiResponse<Void>> sendVerificationCode(
@@ -62,6 +64,12 @@ public class EmailVerificationController {
             log.error("Failed to check verification status: {}", e.getMessage());
             return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
         }
+    }
+
+    @GetMapping("/daily-limit")
+    public ResponseEntity<ApiResponse<Integer>> getDailyLimit(@RequestParam String email) {
+        int remaining = emailService.getRemainingDailyCount(email);
+        return ResponseEntity.ok(ApiResponse.success(remaining));
     }
 
     private EmailVerification.VerificationType parseVerificationType(String type) {

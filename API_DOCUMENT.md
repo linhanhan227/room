@@ -343,9 +343,405 @@ GET /email/verification/status?email=user@example.com&type=REGISTER
 
 ---
 
-## 3. 用户模块 (Users)
+### 2.4 获取每日邮件发送限制
 
-### 3.1 获取当前用户信息
+**接口地址**: `GET /email/daily-limit`
+
+**权限要求**: 无
+
+**查询参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| email | String | 是 | 邮箱地址 |
+
+**请求示例**:
+```
+GET /email/daily-limit?email=user@example.com
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": 8,
+  "timestamp": 1700000000000
+}
+```
+
+**响应说明**:
+- `data: 8` - 今日剩余可发送次数
+- `data: -1` - 未启用每日限制
+- `data: 0` - 今日已达上限
+
+---
+
+## 3. 举报模块 (Reports)
+
+### 3.1 提交举报
+
+**接口地址**: `POST /reports`
+
+**权限要求**: 需要登录
+
+**请求体**:
+```json
+{
+  "type": "SPAM",
+  "targetType": "USER",
+  "reportedUserId": 123,
+  "reason": "发送垃圾信息",
+  "description": "该用户在聊天室中频繁发送广告信息"
+}
+```
+
+**请求参数说明**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| type | String | 是 | 举报类型 |
+| targetType | String | 是 | 举报目标类型 |
+| reportedUserId | Long | 否 | 被举报用户ID（targetType=USER时必填） |
+| reportedRoomId | Long | 否 | 被举报聊天室ID（targetType=ROOM时必填） |
+| reportedMessageId | Long | 否 | 被举报消息ID（targetType=MESSAGE时必填） |
+| reason | String | 是 | 举报原因 |
+| description | String | 否 | 详细描述 |
+
+**举报类型说明**:
+
+| 类型 | 说明 |
+|------|------|
+| SPAM | 垃圾信息 |
+| HARASSMENT | 骚扰 |
+| INAPPROPRIATE_CONTENT | 不当内容 |
+| VIOLENCE | 暴力 |
+| FRAUD | 欺诈 |
+| OTHER | 其他 |
+
+**举报目标类型说明**:
+
+| 类型 | 说明 |
+|------|------|
+| USER | 用户 |
+| ROOM | 聊天室 |
+| MESSAGE | 消息 |
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "举报提交成功",
+  "data": {
+    "id": 1,
+    "reporterId": 1,
+    "reporterName": "testuser",
+    "reportedUserId": 123,
+    "reportedUserName": "baduser",
+    "type": "SPAM",
+    "targetType": "USER",
+    "reason": "发送垃圾信息",
+    "status": "PENDING",
+    "createdAt": "2024-01-20T10:00:00"
+  },
+  "timestamp": 1700000000000
+}
+```
+
+**限制说明**:
+- 每个用户每日最多提交10次举报
+- 同一目标不能重复举报（待处理状态下）
+
+---
+
+### 3.2 获取我的举报记录
+
+**接口地址**: `GET /reports/my`
+
+**权限要求**: 需要登录
+
+**查询参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| page | Integer | 否 | 页码，默认0 |
+| size | Integer | 否 | 每页数量，默认10 |
+
+**请求示例**:
+```
+GET /reports/my?page=0&size=10
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": {
+    "content": [
+      {
+        "id": 1,
+        "reporterId": 1,
+        "reporterName": "testuser",
+        "reportedUserId": 123,
+        "reportedUserName": "baduser",
+        "type": "SPAM",
+        "targetType": "USER",
+        "reason": "发送垃圾信息",
+        "status": "RESOLVED",
+        "handlerId": 2,
+        "handlerName": "admin",
+        "handleResult": "已封禁该用户",
+        "handledAt": "2024-01-20T11:00:00",
+        "createdAt": "2024-01-20T10:00:00"
+      }
+    ],
+    "totalElements": 1,
+    "totalPages": 1,
+    "number": 0,
+    "size": 10
+  },
+  "timestamp": 1700000000000
+}
+```
+
+---
+
+### 3.3 获取举报详情
+
+**接口地址**: `GET /reports/{id}`
+
+**权限要求**: 需要登录
+
+**路径参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| id | Long | 是 | 举报ID |
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": {
+    "id": 1,
+    "reporterId": 1,
+    "reporterName": "testuser",
+    "reportedUserId": 123,
+    "reportedUserName": "baduser",
+    "type": "SPAM",
+    "targetType": "USER",
+    "reason": "发送垃圾信息",
+    "description": "详细描述",
+    "status": "RESOLVED",
+    "handlerId": 2,
+    "handlerName": "admin",
+    "handleResult": "已封禁该用户",
+    "handledAt": "2024-01-20T11:00:00",
+    "createdAt": "2024-01-20T10:00:00"
+  },
+  "timestamp": 1700000000000
+}
+```
+
+---
+
+### 3.4 获取所有举报列表（管理员）
+
+**接口地址**: `GET /reports`
+
+**权限要求**: 管理员
+
+**查询参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| page | Integer | 否 | 页码，默认0 |
+| size | Integer | 否 | 每页数量，默认10 |
+
+**请求示例**:
+```
+GET /reports?page=0&size=10
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": {
+    "content": [],
+    "totalElements": 100,
+    "totalPages": 10,
+    "number": 0,
+    "size": 10
+  },
+  "timestamp": 1700000000000
+}
+```
+
+---
+
+### 3.5 按状态获取举报列表（管理员）
+
+**接口地址**: `GET /reports/status/{status}`
+
+**权限要求**: 管理员
+
+**路径参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| status | String | 是 | 举报状态 |
+
+**查询参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| page | Integer | 否 | 页码，默认0 |
+| size | Integer | 否 | 每页数量，默认10 |
+
+**举报状态说明**:
+
+| 状态 | 说明 |
+|------|------|
+| PENDING | 待处理 |
+| PROCESSING | 处理中 |
+| RESOLVED | 已解决 |
+| REJECTED | 已拒绝 |
+
+**请求示例**:
+```
+GET /reports/status/PENDING?page=0&size=10
+```
+
+---
+
+### 3.6 按类型获取举报列表（管理员）
+
+**接口地址**: `GET /reports/type/{type}`
+
+**权限要求**: 管理员
+
+**路径参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| type | String | 是 | 举报类型 |
+
+**查询参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| page | Integer | 否 | 页码，默认0 |
+| size | Integer | 否 | 每页数量，默认10 |
+
+**请求示例**:
+```
+GET /reports/type/SPAM?page=0&size=10
+```
+
+---
+
+### 3.7 获取举报统计（管理员）
+
+**接口地址**: `GET /reports/statistics`
+
+**权限要求**: 管理员
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": {
+    "total": 150,
+    "pending": 20,
+    "processing": 5,
+    "resolved": 100,
+    "rejected": 25,
+    "todayReports": 8
+  },
+  "timestamp": 1700000000000
+}
+```
+
+---
+
+### 3.8 处理举报（管理员）
+
+**接口地址**: `PUT /reports/{id}/handle`
+
+**权限要求**: 管理员
+
+**路径参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| id | Long | 是 | 举报ID |
+
+**请求体**:
+```json
+{
+  "status": "RESOLVED",
+  "handleResult": "已封禁该用户7天"
+}
+```
+
+**请求参数说明**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| status | String | 是 | 处理状态：PROCESSING/RESOLVED/REJECTED |
+| handleResult | String | 是 | 处理结果说明 |
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "举报处理成功",
+  "data": {
+    "id": 1,
+    "status": "RESOLVED",
+    "handlerId": 2,
+    "handlerName": "admin",
+    "handleResult": "已封禁该用户7天",
+    "handledAt": "2024-01-20T11:00:00"
+  },
+  "timestamp": 1700000000000
+}
+```
+
+---
+
+### 3.9 删除举报（管理员）
+
+**接口地址**: `DELETE /reports/{id}`
+
+**权限要求**: 管理员
+
+**路径参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| id | Long | 是 | 举报ID |
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "举报记录已删除",
+  "data": null,
+  "timestamp": 1700000000000
+}
+```
+
+---
+
+## 4. 用户模块 (Users)
+
+### 4.1 获取当前用户信息
 
 **接口地址**: `GET /users/me`
 
@@ -372,7 +768,7 @@ GET /email/verification/status?email=user@example.com&type=REGISTER
 
 ---
 
-### 3.2 根据ID获取用户信息
+### 4.2 根据ID获取用户信息
 
 **接口地址**: `GET /users/{id}`
 
@@ -405,7 +801,7 @@ GET /email/verification/status?email=user@example.com&type=REGISTER
 
 ---
 
-### 3.3 根据用户名获取用户信息
+### 4.3 根据用户名获取用户信息
 
 **接口地址**: `GET /users/username/{username}`
 
@@ -511,7 +907,7 @@ GET /email/verification/status?email=user@example.com&type=REGISTER
 
 ---
 
-### 3.7 更新用户资料
+### 4.7 更新用户资料
 
 **接口地址**: `PUT /users/me`
 
@@ -581,7 +977,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 3.9 更新用户状态
+### 4.9 更新用户状态
 
 **接口地址**: `PUT /users/{id}/status`
 
@@ -617,9 +1013,9 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-## 4. 聊天室模块 (Rooms)
+## 5. 聊天室模块 (Rooms)
 
-### 4.1 创建聊天室
+### 5.1 创建聊天室
 
 **接口地址**: `POST /rooms`
 
@@ -754,7 +1150,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 3.5 获取聊天室详情
+### 5.5 获取聊天室详情
 
 **接口地址**: `GET /rooms/{roomId}`
 
@@ -832,7 +1228,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 3.7 获取我的聊天室列表
+### 5.7 获取我的聊天室列表
 
 **接口地址**: `GET /rooms/my`
 
@@ -861,7 +1257,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 3.8 搜索聊天室
+### 5.8 搜索聊天室
 
 **接口地址**: `GET /rooms/search`
 
@@ -1006,9 +1402,9 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-## 5. 消息模块 (Messages)
+## 6. 消息模块 (Messages)
 
-### 4.1 发送消息
+### 6.1 发送消息
 
 **接口地址**: `POST /messages`
 
@@ -1052,7 +1448,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 4.2 获取聊天室消息列表
+### 6.2 获取聊天室消息列表
 
 **接口地址**: `GET /messages/room/{roomId}`
 
@@ -1100,7 +1496,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 4.3 获取最近消息
+### 6.3 获取最近消息
 
 **接口地址**: `GET /messages/room/{roomId}/recent`
 
@@ -1164,7 +1560,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 4.5 删除消息
+### 6.5 删除消息
 
 **接口地址**: `DELETE /messages/{messageId}`
 
@@ -1212,11 +1608,11 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-## 6. 管理模块 (Admin)
+## 7. 管理模块
 
 > 所有管理接口需要 ADMIN 角色
 
-### 5.1 获取仪表盘统计
+### 7.1 获取仪表盘统计
 
 **接口地址**: `GET /admin/dashboard`
 
@@ -1286,7 +1682,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 5.4 设置用户角色
+### 7.4 设置用户角色
 
 **接口地址**: `PUT /admin/users/{userId}/role`
 
@@ -1365,7 +1761,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 5.6 解封用户
+### 7.6 解封用户
 
 **接口地址**: `DELETE /admin/users/{userId}/ban`
 
@@ -1422,7 +1818,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 5.9 获取所有聊天室
+### 7.9 获取所有聊天室
 
 **接口地址**: `GET /admin/rooms`
 
@@ -1632,7 +2028,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-## 7. 敏感词管理模块 (Sensitive Words)
+## 8. 敏感词管理模块 (Sensitive Words)
 
 > 所有敏感词管理接口需要 ADMIN 角色
 > 敏感词支持三种高效过滤算法：KMP、Trie树、AC自动机
@@ -1870,7 +2266,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-## 8. WebSocket 接口
+## 9. WebSocket 接口
 
 ### 7.1 连接端点
 
@@ -1936,7 +2332,7 @@ stompClient.connect({
 
 ---
 
-## 9. 数据模型
+## 9 数据模型
 
 ### 8.1 User (用户)
 
@@ -2037,7 +2433,7 @@ stompClient.connect({
 
 ---
 
-## 10. 错误码说明
+## 11. 错误码说明
 
 | 错误信息 | 说明 |
 |----------|------|
@@ -2064,7 +2460,7 @@ stompClient.connect({
 
 ---
 
-## 11. 版本历史
+## 12. 版本历史
 
 | 版本 | 日期 | 说明 |
 |------|------|------|

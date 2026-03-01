@@ -188,6 +188,63 @@ CREATE TABLE IF NOT EXISTS email_verifications (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='邮箱验证表';
 
 -- =============================================
+-- 8. 举报表 (reports)
+-- 存储用户举报记录
+-- =============================================
+CREATE TABLE IF NOT EXISTS reports (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '举报ID，主键自增',
+    reporter_id BIGINT NOT NULL COMMENT '举报人ID',
+    reported_user_id BIGINT COMMENT '被举报用户ID',
+    reported_room_id BIGINT COMMENT '被举报聊天室ID',
+    reported_message_id BIGINT COMMENT '被举报消息ID',
+    type VARCHAR(30) NOT NULL COMMENT '举报类型：SPAM-垃圾信息, HARASSMENT-骚扰, INAPPROPRIATE_CONTENT-不当内容, VIOLENCE-暴力, FRAUD-欺诈, OTHER-其他',
+    target_type VARCHAR(20) NOT NULL COMMENT '举报目标类型：USER-用户, ROOM-聊天室, MESSAGE-消息',
+    reason VARCHAR(1000) COMMENT '举报原因',
+    description TEXT COMMENT '详细描述',
+    status VARCHAR(20) DEFAULT 'PENDING' COMMENT '处理状态：PENDING-待处理, PROCESSING-处理中, RESOLVED-已解决, REJECTED-已拒绝',
+    handler_id BIGINT COMMENT '处理人ID',
+    handle_result VARCHAR(500) COMMENT '处理结果',
+    handled_at DATETIME COMMENT '处理时间',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    
+    -- 索引定义
+    INDEX idx_reporter (reporter_id) COMMENT '举报人索引',
+    INDEX idx_reported_user (reported_user_id) COMMENT '被举报用户索引',
+    INDEX idx_reported_room (reported_room_id) COMMENT '被举报聊天室索引',
+    INDEX idx_reported_message (reported_message_id) COMMENT '被举报消息索引',
+    INDEX idx_type (type) COMMENT '举报类型索引',
+    INDEX idx_status (status) COMMENT '处理状态索引',
+    INDEX idx_created_at (created_at) COMMENT '创建时间索引',
+    
+    -- 外键约束
+    FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (reported_user_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (reported_room_id) REFERENCES chat_rooms(id) ON DELETE SET NULL,
+    FOREIGN KEY (reported_message_id) REFERENCES messages(id) ON DELETE SET NULL,
+    FOREIGN KEY (handler_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='举报表';
+
+-- =============================================
+-- 9. 邮件发送日志表 (email_send_logs)
+-- 记录邮件发送次数，用于每日限制
+-- =============================================
+CREATE TABLE IF NOT EXISTS email_send_logs (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '日志ID，主键自增',
+    email VARCHAR(100) NOT NULL COMMENT '邮箱地址',
+    type VARCHAR(30) COMMENT '邮件类型：VERIFICATION-验证邮件, SIMPLE-简单邮件, HTML-HTML邮件',
+    send_date DATE NOT NULL COMMENT '发送日期',
+    send_count INT DEFAULT 1 COMMENT '当日发送次数',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    
+    -- 索引定义
+    INDEX idx_email (email) COMMENT '邮箱索引',
+    INDEX idx_send_date (send_date) COMMENT '发送日期索引',
+    UNIQUE KEY uk_email_date (email, send_date) COMMENT '邮箱日期唯一索引'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='邮件发送日志表';
+
+-- =============================================
 -- 初始化数据
 -- =============================================
 

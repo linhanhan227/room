@@ -1,5 +1,8 @@
 package com.chat.room.service;
 
+import com.chat.room.entity.EmailSendLog;
+import com.chat.room.exception.BusinessException;
+import com.chat.room.repository.EmailSendLogRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -8,9 +11,12 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -18,6 +24,7 @@ import jakarta.mail.internet.MimeMessage;
 public class EmailService {
 
     private final JavaMailSender mailSender;
+    private final EmailSendLogRepository emailSendLogRepository;
 
     @Value("${email.from}")
     private String from;
@@ -25,8 +32,17 @@ public class EmailService {
     @Value("${email.verification.subject}")
     private String verificationSubject;
 
+    @Value("${email.daily-limit.enabled:true}")
+    private boolean dailyLimitEnabled;
+
+    @Value("${email.daily-limit.max-count:10}")
+    private int dailyMaxCount;
+
     @Async
+    @Transactional
     public void sendVerificationCode(String to, String code) {
+        checkAndIncrementDailyLimit(to, "VERIFICATION");
+        
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
@@ -47,7 +63,10 @@ public class EmailService {
     }
 
     @Async
+    @Transactional
     public void sendSimpleEmail(String to, String subject, String content) {
+        checkAndIncrementDailyLimit(to, "SIMPLE");
+        
         try {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(from);
@@ -64,7 +83,10 @@ public class EmailService {
     }
 
     @Async
+    @Transactional
     public void sendHtmlEmail(String to, String subject, String htmlContent) {
+        checkAndIncrementDailyLimit(to, "HTML");
+        
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
@@ -80,6 +102,46 @@ public class EmailService {
             log.error("Failed to send HTML email to: {}", to, e);
             throw new RuntimeException("Failed to send HTML email", e);
         }
+    }
+
+    private void checkAndIncrementDailyLimit(String email, String type) {
+        if (!dailyLimitEnabled) {
+            return;
+        }
+
+        LocalDate today = LocalDate.now();
+        int currentCount = emailSendLogRepository.getSendCountByEmailAndDate(email, today);
+        
+        if (currentCount >= dailyMaxCount) {
+            log.warn("Email daily limit exceeded for: {} (count: {}, max: {})", 
+                    email, currentCount, dailyMaxCount);
+            throw new BusinessException(String.format("今日发送邮件次数已达上限(%d次)，请明天再试", dailyMaxCount));
+        }
+
+        EmailSendLog log = emailSendLogRepository.findByEmailAndSendDate(email, today)
+                .orElse(null);
+        
+        if (log == null) {
+            log = EmailSendLog.builder()
+                    .email(email)
+                    .type(type)
+                    .sendDate(today)
+                    .sendCount(1)
+                    .build();
+            emailSendLogRepository.save(log);
+        } else {
+            emailSendLogRepository.incrementSendCount(email, today);
+        }
+    }
+
+    public int getRemainingDailyCount(String email) {
+        if (!dailyLimitEnabled) {
+            return -1;
+        }
+        
+        LocalDate today = LocalDate.now();
+        int currentCount = emailSendLogRepository.getSendCountByEmailAndDate(email, today);
+        return Math.max(0, dailyMaxCount - currentCount);
     }
 
     private String buildVerificationEmailTemplate(String code) {
