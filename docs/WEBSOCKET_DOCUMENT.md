@@ -1,67 +1,114 @@
 # WebSocket 接口文档
 
-## 目录
+## 基础信息
 
-1. [概述](#概述)
-2. [连接配置](#连接配置)
-3. [认证方式](#认证方式)
-4. [消息订阅](#消息订阅)
-5. [消息发送](#消息发送)
-6. [心跳机制](#心跳机制)
-7. [使用示例](#使用示例)
-8. [错误处理](#错误处理)
-9. [配置参数](#配置参数)
+- **WebSocket URL**: `ws://localhost:8080/api/ws`
+- **协议**: WebSocket over STOMP
+- **数据格式**: JSON
+- **字符编码**: UTF-8
+- **认证方式**: JWT Bearer Token
 
 ---
 
-## 概述
+## 通用说明
 
-本项目使用 STOMP 协议 over WebSocket 实现实时通信功能，支持以下特性：
-
-- 实时消息收发
-- 聊天室加入/离开通知
-- 用户在线状态管理
-- 输入状态提示
-- 心跳检测机制
-- 自动重连支持
-
-### 技术栈
-
-| 技术 | 说明 |
-|------|------|
-| WebSocket | 双向通信协议 |
-| STOMP | 简单文本定向消息协议 |
-| SockJS | WebSocket 降级方案 |
-
----
-
-## 连接配置
-
-### 连接端点
-
-| 端点 | 说明 |
-|------|------|
-| `/ws` | WebSocket 主端点 |
-| `/ws` (SockJS) | 支持 SockJS 降级的端点 |
-
-### 连接 URL
-
-```
-ws://localhost:8080/api/ws
-```
-
-生产环境：
-```
-wss://your-domain.com/api/ws
-```
-
----
-
-## 认证方式
-
-### JWT Token 认证
+### 连接认证
 
 WebSocket 连接时需要在 STOMP CONNECT 帧中携带 JWT Token：
+
+```
+Authorization: Bearer <token>
+```
+
+### 消息格式
+
+**发送消息格式**:
+```json
+{
+  "content": "消息内容",
+  "type": "TEXT"
+}
+```
+
+**接收消息格式**:
+```json
+{
+  "id": 1,
+  "roomId": 100,
+  "senderId": 1,
+  "senderName": "张三",
+  "senderAvatar": "http://example.com/avatar.jpg",
+  "content": "Hello, World!",
+  "type": "TEXT",
+  "createdAt": "2024-01-01T12:00:00"
+}
+```
+
+### 错误响应格式
+
+```json
+{
+  "error": "错误类型",
+  "message": "错误信息描述"
+}
+```
+
+### 连接状态码
+
+| 状态码 | 说明 |
+|--------|------|
+| 1000 | 正常关闭 |
+| 1001 | 端点离开 |
+| 1002 | 协议错误 |
+| 1003 | 不支持的数据类型 |
+| 1008 | 策略违规 |
+| 1011 | 内部错误 |
+| 1012 | 服务重启 |
+| 1013 | 稍后重试 |
+
+---
+
+## 目录
+
+- [1. 连接管理](#1-连接管理)
+  - [1.1 建立连接](#11-建立连接)
+  - [1.2 断开连接](#12-断开连接)
+  - [1.3 心跳检测](#13-心跳检测)
+- [2. 消息订阅](#2-消息订阅)
+  - [2.1 订阅聊天室消息](#21-订阅聊天室消息)
+  - [2.2 订阅输入状态](#22-订阅输入状态)
+  - [2.3 订阅用户状态](#23-订阅用户状态)
+  - [2.4 订阅个人通知](#24-订阅个人通知)
+- [3. 消息发送](#3-消息发送)
+  - [3.1 发送聊天消息](#31-发送聊天消息)
+  - [3.2 加入聊天室](#32-加入聊天室)
+  - [3.3 离开聊天室](#33-离开聊天室)
+  - [3.4 发送输入状态](#34-发送输入状态)
+  - [3.5 更新用户状态](#35-更新用户状态)
+- [4. 数据模型](#4-数据模型)
+- [5. 使用示例](#5-使用示例)
+- [6. 错误处理](#6-错误处理)
+- [7. 配置参数](#7-配置参数)
+
+---
+
+## 1. 连接管理
+
+### 1.1 建立连接
+
+**连接端点**: `ws://localhost:8080/api/ws`
+
+**协议**: STOMP over WebSocket / SockJS
+
+**权限要求**: 需要登录
+
+**连接头参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| Authorization | String | 是 | JWT Token，格式: `Bearer <token>` |
+
+**连接示例**:
 
 ```javascript
 const socket = new SockJS('http://localhost:8080/api/ws');
@@ -78,39 +125,94 @@ stompClient.connect(headers, function(frame) {
 });
 ```
 
-### 认证流程
-
+**连接成功响应**:
 ```
-┌─────────────┐     CONNECT + Token     ┌─────────────┐
-│   Client    │ ──────────────────────> │   Server    │
-└─────────────┘                         └─────────────┘
-                                              │
-                                              ▼
-                                        验证 Token
-                                              │
-                     ┌────────────────────────┴────────────────────────┐
-                     │                                                  │
-                     ▼                                                  ▼
-              Token 有效                                          Token 无效
-                     │                                                  │
-                     ▼                                                  ▼
-              连接成功                                           连接被拒绝
+CONNECTED
+version:1.2
+heart-beat:30000,30000
+server:ActiveMQ/5.12.1
+```
+
+**连接失败响应**:
+```json
+{
+  "error": "Unauthorized",
+  "message": "Invalid or expired token"
+}
 ```
 
 ---
 
-## 消息订阅
+### 1.2 断开连接
 
-### 订阅地址列表
+**操作类型**: DISCONNECT
 
-| 订阅地址 | 说明 | 消息类型 |
-|----------|------|----------|
-| `/topic/room.{roomId}` | 聊天室消息 | MessageDTO |
-| `/topic/room.{roomId}.typing` | 输入状态提示 | TypingEvent |
-| `/topic/user.status` | 用户状态变更 | StatusEvent |
-| `/user/queue/notifications` | 个人通知 | NotificationDTO |
+**权限要求**: 需要已连接
 
-### 订阅聊天室消息
+**断开示例**:
+
+```javascript
+stompClient.disconnect(function() {
+    console.log('Disconnected');
+});
+```
+
+**断开流程**:
+1. 客户端发送 DISCONNECT 帧
+2. 服务端更新用户状态为 OFFLINE
+3. 广播用户离线状态到 `/topic/user.status`
+4. 关闭 WebSocket 连接
+
+---
+
+### 1.3 心跳检测
+
+**目的地址**: `/app/heartbeat`
+
+**权限要求**: 需要登录
+
+**请求体**: 无
+
+**说明**:
+- STOMP 客户端会自动处理心跳，无需手动发送
+- 心跳间隔默认 30 秒
+- 超时时间默认 90 秒
+
+**手动心跳示例**:
+
+```javascript
+stompClient.send('/app/heartbeat', {}, JSON.stringify({}));
+```
+
+**心跳配置**:
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| 心跳间隔 | 30000ms | 客户端/服务端心跳发送间隔 |
+| 心跳超时 | 90000ms | 超过此时间未收到心跳则判定离线 |
+
+**超时处理**:
+1. 将用户状态更新为 `OFFLINE`
+2. 广播用户离线状态到 `/topic/user.status`
+3. 从心跳监控列表中移除用户
+
+---
+
+## 2. 消息订阅
+
+### 2.1 订阅聊天室消息
+
+**订阅地址**: `/topic/room.{roomId}`
+
+**权限要求**: 需要登录且已加入聊天室
+
+**路径参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| roomId | Long | 是 | 聊天室ID |
+
+**订阅示例**:
 
 ```javascript
 stompClient.subscribe('/topic/room.' + roomId, function(message) {
@@ -119,49 +221,7 @@ stompClient.subscribe('/topic/room.' + roomId, function(message) {
 });
 ```
 
-### 订阅输入状态
-
-```javascript
-stompClient.subscribe('/topic/room.' + roomId + '.typing', function(message) {
-    const typingEvent = JSON.parse(message.body);
-    console.log(typingEvent.username + ' is typing...');
-});
-```
-
-### 订阅用户状态
-
-```javascript
-stompClient.subscribe('/topic/user.status', function(message) {
-    const statusEvent = JSON.parse(message.body);
-    console.log('User ' + statusEvent.userId + ' is now ' + statusEvent.status);
-});
-```
-
----
-
-## 消息发送
-
-### 发送聊天消息
-
-**目的地**: `/app/chat.send.{roomId}`
-
-**请求体**:
-
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| content | String | 是 | 消息内容 |
-| type | String | 否 | 消息类型: TEXT/IMAGE/FILE，默认 TEXT |
-
-**示例**:
-
-```javascript
-stompClient.send('/app/chat.send.' + roomId, {}, JSON.stringify({
-    content: 'Hello, World!',
-    type: 'TEXT'
-}));
-```
-
-**响应消息格式 (MessageDTO)**:
+**消息格式 (MessageDTO)**:
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
@@ -174,6 +234,7 @@ stompClient.send('/app/chat.send.' + roomId, {}, JSON.stringify({
 | type | String | 消息类型: TEXT/IMAGE/FILE/SYSTEM |
 | createdAt | DateTime | 发送时间 |
 
+**消息示例**:
 ```json
 {
     "id": 1,
@@ -187,13 +248,185 @@ stompClient.send('/app/chat.send.' + roomId, {}, JSON.stringify({
 }
 ```
 
-### 加入聊天室
+---
 
-**目的地**: `/app/chat.join.{roomId}`
+### 2.2 订阅输入状态
+
+**订阅地址**: `/topic/room.{roomId}.typing`
+
+**权限要求**: 需要登录且已加入聊天室
+
+**路径参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| roomId | Long | 是 | 聊天室ID |
+
+**订阅示例**:
+
+```javascript
+stompClient.subscribe('/topic/room.' + roomId + '.typing', function(message) {
+    const typingEvent = JSON.parse(message.body);
+    console.log(typingEvent.username + ' is typing...');
+});
+```
+
+**消息格式 (TypingEvent)**:
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| userId | Long | 用户ID |
+| username | String | 用户昵称 |
+| typing | Boolean | 是否正在输入 |
+
+**消息示例**:
+```json
+{
+    "userId": 1,
+    "username": "张三",
+    "typing": true
+}
+```
+
+---
+
+### 2.3 订阅用户状态
+
+**订阅地址**: `/topic/user.status`
+
+**权限要求**: 需要登录
+
+**订阅示例**:
+
+```javascript
+stompClient.subscribe('/topic/user.status', function(message) {
+    const statusEvent = JSON.parse(message.body);
+    console.log('User ' + statusEvent.userId + ' is now ' + statusEvent.status);
+});
+```
+
+**消息格式 (StatusEvent)**:
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| userId | Long | 用户ID |
+| username | String | 用户昵称 |
+| status | String | 状态: ONLINE/OFFLINE/AFK/BUSY |
+
+**消息示例**:
+```json
+{
+    "userId": 1,
+    "username": "张三",
+    "status": "ONLINE"
+}
+```
+
+**状态说明**:
+
+| 状态 | 说明 |
+|------|------|
+| ONLINE | 在线 |
+| OFFLINE | 离线 |
+| AFK | 离开 |
+| BUSY | 忙碌 |
+
+---
+
+### 2.4 订阅个人通知
+
+**订阅地址**: `/user/queue/notifications`
+
+**权限要求**: 需要登录
+
+**订阅示例**:
+
+```javascript
+stompClient.subscribe('/user/queue/notifications', function(message) {
+    const notification = JSON.parse(message.body);
+    console.log('Notification:', notification);
+});
+```
+
+**消息格式 (NotificationDTO)**:
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Long | 通知ID |
+| type | String | 通知类型 |
+| title | String | 通知标题 |
+| content | String | 通知内容 |
+| read | Boolean | 是否已读 |
+| createdAt | DateTime | 创建时间 |
+
+---
+
+## 3. 消息发送
+
+### 3.1 发送聊天消息
+
+**目的地址**: `/app/chat.send.{roomId}`
+
+**权限要求**: 需要登录且已加入聊天室
+
+**路径参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| roomId | Long | 是 | 聊天室ID |
+
+**请求体**:
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| content | String | 是 | 消息内容 |
+| type | String | 否 | 消息类型: TEXT/IMAGE/FILE，默认 TEXT |
+
+**请求示例**:
+```json
+{
+    "content": "Hello, World!",
+    "type": "TEXT"
+}
+```
+
+**发送示例**:
+
+```javascript
+stompClient.send('/app/chat.send.' + roomId, {}, JSON.stringify({
+    content: 'Hello, World!',
+    type: 'TEXT'
+}));
+```
+
+**响应**: 消息广播到 `/topic/room.{roomId}`，格式见 [2.1 订阅聊天室消息](#21-订阅聊天室消息)
+
+**消息类型说明**:
+
+| 类型 | 说明 |
+|------|------|
+| TEXT | 文本消息 |
+| IMAGE | 图片消息 |
+| FILE | 文件消息 |
+| SYSTEM | 系统消息 |
+
+---
+
+### 3.2 加入聊天室
+
+**目的地址**: `/app/chat.join.{roomId}`
+
+**权限要求**: 需要登录
+
+**路径参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| roomId | Long | 是 | 聊天室ID |
 
 **请求体**: 无
 
-**示例**:
+**发送示例**:
 
 ```javascript
 stompClient.send('/app/chat.join.' + roomId, {}, JSON.stringify({}));
@@ -212,32 +445,64 @@ stompClient.send('/app/chat.join.' + roomId, {}, JSON.stringify({}));
 }
 ```
 
-### 离开聊天室
+---
 
-**目的地**: `/app/chat.leave.{roomId}`
+### 3.3 离开聊天室
+
+**目的地址**: `/app/chat.leave.{roomId}`
+
+**权限要求**: 需要登录
+
+**路径参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| roomId | Long | 是 | 聊天室ID |
 
 **请求体**: 无
 
-**示例**:
+**发送示例**:
 
 ```javascript
 stompClient.send('/app/chat.leave.' + roomId, {}, JSON.stringify({}));
 ```
 
-### 发送输入状态
+**响应**: 系统消息广播到 `/topic/room.{roomId}`
 
-**目的地**: `/app/chat.typing.{roomId}`
+```json
+{
+    "roomId": 100,
+    "senderId": 0,
+    "senderName": "System",
+    "content": "张三 left the room",
+    "type": "SYSTEM",
+    "createdAt": "2024-01-01T12:00:00"
+}
+```
+
+---
+
+### 3.4 发送输入状态
+
+**目的地址**: `/app/chat.typing.{roomId}`
+
+**权限要求**: 需要登录且已加入聊天室
+
+**路径参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| roomId | Long | 是 | 聊天室ID |
 
 **请求体**: 无
 
-**示例**:
+**发送示例**:
 
 ```javascript
-// 用户开始输入时发送
 stompClient.send('/app/chat.typing.' + roomId, {}, JSON.stringify({}));
 ```
 
-**响应消息格式**:
+**响应**: 输入状态广播到 `/topic/room.{roomId}.typing`
 
 ```json
 {
@@ -247,9 +512,15 @@ stompClient.send('/app/chat.typing.' + roomId, {}, JSON.stringify({}));
 }
 ```
 
-### 更新用户状态
+**建议**: 使用防抖（debounce）控制发送频率，避免频繁发送
 
-**目的地**: `/app/user.status`
+---
+
+### 3.5 更新用户状态
+
+**目的地址**: `/app/user.status`
+
+**权限要求**: 需要登录
 
 **请求体**:
 
@@ -257,7 +528,14 @@ stompClient.send('/app/chat.typing.' + roomId, {}, JSON.stringify({}));
 |------|------|------|------|
 | status | String | 是 | 状态: ONLINE/OFFLINE/AFK/BUSY |
 
-**示例**:
+**请求示例**:
+```json
+{
+    "status": "BUSY"
+}
+```
+
+**发送示例**:
 
 ```javascript
 stompClient.send('/app/user.status', {}, JSON.stringify({
@@ -265,61 +543,64 @@ stompClient.send('/app/user.status', {}, JSON.stringify({
 }));
 ```
 
----
+**响应**: 状态变更广播到 `/topic/user.status`
 
-## 心跳机制
-
-### 心跳配置
-
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| 心跳间隔 | 30000ms | 客户端/服务端心跳发送间隔 |
-| 心跳超时 | 90000ms | 超过此时间未收到心跳则判定离线 |
-
-### 心跳流程
-
+```json
+{
+    "userId": 1,
+    "status": "BUSY"
+}
 ```
-┌─────────────┐                         ┌─────────────┐
-│   Client    │                         │   Server    │
-└─────────────┘                         └─────────────┘
-       │                                      │
-       │  ────────  CONNECT  ──────────────>  │
-       │                                      │
-       │  <───────  CONNECTED  ───────────    │
-       │                                      │
-       │  <───────  HEARTBEAT  ───────────    │
-       │  ────────  HEARTBEAT  ────────────>  │
-       │                                      │
-       │  <───────  HEARTBEAT  ───────────    │
-       │  ────────  HEARTBEAT  ────────────>  │
-       │                                      │
-       │         (持续心跳交换)                 │
-       │                                      │
-```
-
-### 自动心跳
-
-STOMP 客户端会自动处理心跳，无需手动发送。但可以发送手动心跳：
-
-**目的地**: `/app/heartbeat`
-
-```javascript
-stompClient.send('/app/heartbeat', {}, JSON.stringify({}));
-```
-
-### 超时处理
-
-当用户超过 90 秒未发送心跳，服务端将：
-
-1. 将用户状态更新为 `OFFLINE`
-2. 广播用户离线状态到 `/topic/user.status`
-3. 从心跳监控列表中移除用户
 
 ---
 
-## 使用示例
+## 4. 数据模型
 
-### 完整 JavaScript 示例
+### MessageDTO
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Long | 消息ID |
+| roomId | Long | 聊天室ID |
+| senderId | Long | 发送者ID |
+| senderName | String | 发送者昵称 |
+| senderAvatar | String | 发送者头像URL |
+| content | String | 消息内容 |
+| type | String | 消息类型: TEXT/IMAGE/FILE/SYSTEM |
+| createdAt | DateTime | 发送时间 |
+
+### TypingEvent
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| userId | Long | 用户ID |
+| username | String | 用户昵称 |
+| typing | Boolean | 是否正在输入 |
+
+### StatusEvent
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| userId | Long | 用户ID |
+| username | String | 用户昵称 |
+| status | String | 状态: ONLINE/OFFLINE/AFK/BUSY |
+
+### NotificationDTO
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Long | 通知ID |
+| type | String | 通知类型 |
+| title | String | 通知标题 |
+| content | String | 通知内容 |
+| read | Boolean | 是否已读 |
+| createdAt | DateTime | 创建时间 |
+
+---
+
+## 5. 使用示例
+
+### 5.1 完整 JavaScript 示例
 
 ```html
 <!DOCTYPE html>
@@ -403,7 +684,6 @@ stompClient.send('/app/heartbeat', {}, JSON.stringify({}));
         }
 
         // 输入状态提示
-        let typingTimeout;
         document.getElementById('messageInput').addEventListener('input', function() {
             if (stompClient) {
                 stompClient.send('/app/chat.typing.' + roomId, {}, JSON.stringify({}));
@@ -414,7 +694,7 @@ stompClient.send('/app/heartbeat', {}, JSON.stringify({}));
 </html>
 ```
 
-### Vue 3 + TypeScript 示例
+### 5.2 Vue 3 + TypeScript 示例
 
 ```typescript
 // websocket.service.ts
@@ -546,7 +826,7 @@ export class WebSocketService {
 }
 ```
 
-### React Hook 示例
+### 5.3 React Hook 示例
 
 ```typescript
 // useWebSocket.ts
@@ -581,22 +861,18 @@ export function useWebSocket({
             () => {
                 setConnected(true);
 
-                // 订阅消息
                 stompClient.current?.subscribe(`/topic/room.${roomId}`, (message) => {
                     onMessage?.(JSON.parse(message.body));
                 });
 
-                // 订阅输入状态
                 stompClient.current?.subscribe(`/topic/room.${roomId}.typing`, (message) => {
                     onTyping?.(JSON.parse(message.body));
                 });
 
-                // 订阅用户状态
                 stompClient.current?.subscribe('/topic/user.status', (message) => {
                     onUserStatus?.(JSON.parse(message.body));
                 });
 
-                // 加入房间
                 stompClient.current?.send(`/app/chat.join.${roomId}`, {}, JSON.stringify({}));
             },
             (error) => {
@@ -647,32 +923,30 @@ export function useWebSocket({
 
 ---
 
-## 错误处理
+## 6. 错误处理
 
-### 常见错误
+### 6.1 常见错误
 
-| 错误码 | 说明 | 解决方案 |
-|--------|------|----------|
-| 无 Token | 连接时未提供认证信息 | 在连接头中添加 Authorization |
-| Token 无效 | JWT Token 过期或无效 | 重新登录获取新 Token |
-| 权限不足 | 用户不在聊天室中 | 先调用 REST API 加入聊天室 |
-| 消息过大 | 消息超过大小限制 | 减小消息内容大小 |
+| 错误类型 | 说明 | 解决方案 |
+|----------|------|----------|
+| Unauthorized | Token 无效或过期 | 重新登录获取新 Token |
+| Forbidden | 权限不足 | 确认用户已加入聊天室 |
+| Bad Request | 请求格式错误 | 检查 JSON 格式是否正确 |
+| Message Too Large | 消息超过大小限制 | 减小消息内容大小 |
+| Rate Limited | 发送频率过高 | 降低消息发送频率 |
 
-### 错误处理示例
+### 6.2 错误处理示例
 
 ```javascript
 stompClient.connect(headers, 
     function(frame) {
-        // 连接成功
         console.log('Connected');
     },
     function(error) {
-        // 连接失败
         console.error('Connection failed:', error);
         
         if (error.headers && error.headers.message) {
             if (error.headers.message.includes('Unauthorized')) {
-                // Token 无效，需要重新登录
                 window.location.href = '/login';
             }
         }
@@ -680,7 +954,7 @@ stompClient.connect(headers,
 );
 ```
 
-### 自动重连
+### 6.3 自动重连
 
 ```javascript
 function connectWithRetry(maxRetries = 5, retryDelay = 3000) {
@@ -693,7 +967,7 @@ function connectWithRetry(maxRetries = 5, retryDelay = 3000) {
         client.connect(
             { 'Authorization': 'Bearer ' + token },
             function(frame) {
-                retries = 0; // 重置重试计数
+                retries = 0;
                 console.log('Connected');
                 stompClient = client;
             },
@@ -717,7 +991,7 @@ function connectWithRetry(maxRetries = 5, retryDelay = 3000) {
 
 ---
 
-## 配置参数
+## 7. 配置参数
 
 ### application.yaml 配置
 
@@ -750,55 +1024,24 @@ app:
 
 ---
 
-## 消息类型枚举
+## 附录: 接口汇总
 
-### Message.MessageType
+### 发送接口
 
-| 值 | 说明 |
-|------|------|
-| `TEXT` | 文本消息 |
-| `IMAGE` | 图片消息 |
-| `FILE` | 文件消息 |
-| `SYSTEM` | 系统消息 |
+| 目的地址 | 操作 | 说明 |
+|----------|------|------|
+| `/app/chat.send.{roomId}` | SEND | 发送聊天消息 |
+| `/app/chat.join.{roomId}` | SEND | 加入聊天室 |
+| `/app/chat.leave.{roomId}` | SEND | 离开聊天室 |
+| `/app/chat.typing.{roomId}` | SEND | 发送输入状态 |
+| `/app/user.status` | SEND | 更新用户状态 |
+| `/app/heartbeat` | SEND | 手动心跳 |
 
-### User.UserStatus
+### 订阅接口
 
-| 值 | 说明 |
-|------|------|
-| `ONLINE` | 在线 |
-| `OFFLINE` | 离线 |
-| `AFK` | 离开 |
-| `BUSY` | 忙碌 |
-
----
-
-## 最佳实践
-
-### 1. 连接管理
-
-- 在用户登录成功后建立 WebSocket 连接
-- 在用户退出登录时断开连接
-- 实现自动重连机制
-
-### 2. 消息发送
-
-- 发送消息前检查连接状态
-- 对消息内容进行敏感词过滤（服务端已实现）
-- 限制消息发送频率
-
-### 3. 输入状态
-
-- 使用防抖（debounce）控制输入状态发送频率
-- 在用户停止输入一段时间后发送停止输入状态
-
-### 4. 错误处理
-
-- 捕获并处理所有可能的错误
-- 提供用户友好的错误提示
-- 记录错误日志便于排查
-
-### 5. 性能优化
-
-- 避免频繁订阅/取消订阅
-- 合理设置心跳间隔
-- 离开页面时及时断开连接
+| 订阅地址 | 说明 | 消息类型 |
+|----------|------|----------|
+| `/topic/room.{roomId}` | 聊天室消息 | MessageDTO |
+| `/topic/room.{roomId}.typing` | 输入状态提示 | TypingEvent |
+| `/topic/user.status` | 用户状态变更 | StatusEvent |
+| `/user/queue/notifications` | 个人通知 | NotificationDTO |
