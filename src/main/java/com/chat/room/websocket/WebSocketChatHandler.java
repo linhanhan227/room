@@ -27,6 +27,7 @@ public class WebSocketChatHandler {
     private final MessageService messageService;
     private final ChatRoomService chatRoomService;
     private final UserService userService;
+    private final WebSocketEventListener webSocketEventListener;
 
     @MessageMapping("/chat.send.{roomId}")
     public void sendMessage(@DestinationVariable Long roomId, @Payload SendMessageRequest request,
@@ -43,6 +44,8 @@ public class WebSocketChatHandler {
                 return;
             }
 
+            webSocketEventListener.updateHeartbeat(user.getId());
+
             request.setRoomId(roomId);
             MessageDTO message = messageService.sendMessage(request);
 
@@ -58,6 +61,8 @@ public class WebSocketChatHandler {
         try {
             User user = getUserFromSession(headerAccessor);
             if (user != null) {
+                webSocketEventListener.updateHeartbeat(user.getId());
+
                 MessageDTO systemMessage = MessageDTO.builder()
                         .roomId(roomId)
                         .senderId(0L)
@@ -79,6 +84,8 @@ public class WebSocketChatHandler {
         try {
             User user = getUserFromSession(headerAccessor);
             if (user != null) {
+                webSocketEventListener.updateHeartbeat(user.getId());
+
                 MessageDTO systemMessage = MessageDTO.builder()
                         .roomId(roomId)
                         .senderId(0L)
@@ -100,6 +107,8 @@ public class WebSocketChatHandler {
         try {
             User user = getUserFromSession(headerAccessor);
             if (user != null) {
+                webSocketEventListener.updateHeartbeat(user.getId());
+
                 Map<String, Object> typingEvent = Map.of(
                         "userId", user.getId(),
                         "username", user.getNickname() != null ? user.getNickname() : user.getUsername(),
@@ -117,6 +126,8 @@ public class WebSocketChatHandler {
         try {
             User user = getUserFromSession(headerAccessor);
             if (user != null) {
+                webSocketEventListener.updateHeartbeat(user.getId());
+
                 String status = statusUpdate.get("status");
                 if (status != null) {
                     userService.updateUserStatus(user.getId(), User.UserStatus.valueOf(status.toUpperCase()));

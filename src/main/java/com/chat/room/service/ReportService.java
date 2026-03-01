@@ -144,23 +144,23 @@ public class ReportService {
 
     public Page<ReportDTO> getReports(Pageable pageable) {
         return reportRepository.findAll(pageable)
-                .map(this::enrichReportDTO);
+                .map(report -> enrichReportDTO(ReportDTO.fromEntity(report)));
     }
 
     public Page<ReportDTO> getReportsByStatus(String status, Pageable pageable) {
         return reportRepository.findByStatus(parseReportStatus(status), pageable)
-                .map(this::enrichReportDTO);
+                .map(report -> enrichReportDTO(ReportDTO.fromEntity(report)));
     }
 
     public Page<ReportDTO> getReportsByType(String type, Pageable pageable) {
         return reportRepository.findByType(parseReportType(type), pageable)
-                .map(this::enrichReportDTO);
+                .map(report -> enrichReportDTO(ReportDTO.fromEntity(report)));
     }
 
     public Page<ReportDTO> getMyReports(Pageable pageable) {
         User currentUser = getCurrentUser();
         return reportRepository.findByReporterId(currentUser.getId(), pageable)
-                .map(this::enrichReportDTO);
+                .map(report -> enrichReportDTO(ReportDTO.fromEntity(report)));
     }
 
     public Map<String, Object> getReportStatistics() {

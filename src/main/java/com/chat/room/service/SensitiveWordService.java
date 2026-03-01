@@ -1,5 +1,6 @@
 package com.chat.room.service;
 
+import com.chat.room.config.AppProperties;
 import com.chat.room.util.ACSensitiveWordFilter;
 import com.chat.room.util.KMPSensitiveWordFilter;
 import com.chat.room.util.TrieSensitiveWordFilter;
@@ -7,7 +8,6 @@ import com.chat.room.util.SensitiveWordLoader;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -20,23 +20,23 @@ import java.util.Set;
 public class SensitiveWordService {
 
     private final SensitiveWordLoader wordLoader;
+    private final AppProperties appProperties;
     
     private final KMPSensitiveWordFilter kmpFilter;
     private final TrieSensitiveWordFilter trieFilter;
     private final ACSensitiveWordFilter acFilter;
-
-    @Value("${sensitive-word.algorithm:AC}")
-    private String defaultAlgorithm;
 
     @PostConstruct
     public void init() {
         reloadSensitiveWords();
     }
 
-    @Scheduled(fixedRate = 300000)
+    @Scheduled(fixedRateString = "${app.sensitive-word.reload-interval:300000}")
     public void scheduledReload() {
-        log.debug("执行定时重新加载敏感词...");
-        reloadSensitiveWords();
+        if (appProperties.getSensitiveWord().isAutoReload()) {
+            log.debug("执行定时重新加载敏感词...");
+            reloadSensitiveWords();
+        }
     }
 
     public void reloadSensitiveWords() {
@@ -45,7 +45,7 @@ public class SensitiveWordService {
             kmpFilter.init(words);
             trieFilter.init(words);
             acFilter.init(words);
-            log.info("敏感词库重新加载完成，共 {} 个敏感词，默认算法: {}", words.size(), defaultAlgorithm);
+            log.info("敏感词库重新加载完成，共 {} 个敏感词，默认算法: {}", words.size(), appProperties.getSensitiveWord().getAlgorithm());
         } catch (Exception e) {
             log.error("重新加载敏感词失败", e);
         }
@@ -159,12 +159,12 @@ public class SensitiveWordService {
     }
 
     public String getDefaultAlgorithm() {
-        return defaultAlgorithm;
+        return appProperties.getSensitiveWord().getAlgorithm();
     }
 
     public void setDefaultAlgorithm(String algorithm) {
-        this.defaultAlgorithm = algorithm.toUpperCase();
-        log.info("默认敏感词过滤算法已设置为: {}", this.defaultAlgorithm);
+        appProperties.getSensitiveWord().setAlgorithm(algorithm.toUpperCase());
+        log.info("默认敏感词过滤算法已设置为: {}", appProperties.getSensitiveWord().getAlgorithm());
     }
 
     private void reloadFilters() {
@@ -175,7 +175,7 @@ public class SensitiveWordService {
     }
 
     private Object getDefaultFilter() {
-        return getFilterByAlgorithm(defaultAlgorithm);
+        return getFilterByAlgorithm(appProperties.getSensitiveWord().getAlgorithm());
     }
 
     private Object getFilterByAlgorithm(String algorithm) {

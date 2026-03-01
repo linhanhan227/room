@@ -1,5 +1,117 @@
 # Chat Room API 接口文档
 
+## 目录
+
+- [基础信息](#基础信息)
+- [通用说明](#通用说明)
+  - [认证方式](#认证方式)
+  - [统一响应格式](#统一响应格式)
+  - [分页响应格式](#分页响应格式)
+  - [错误响应格式](#错误响应格式)
+  - [HTTP 状态码](#http-状态码)
+- [1. 认证模块 (Auth)](#1-认证模块-auth)
+  - [1.1 用户注册](#11-用户注册)
+  - [1.2 用户登录](#12-用户登录)
+  - [1.3 用户登出](#13-用户登出)
+- [2. 邮箱验证模块 (Email Verification)](#2-邮箱验证模块-email-verification)
+  - [2.1 发送验证码](#21-发送验证码)
+  - [2.2 验证邮箱](#22-验证邮箱)
+  - [2.3 检查验证状态](#23-检查验证状态)
+  - [2.4 获取每日邮件发送限制](#24-获取每日邮件发送限制)
+- [3. 举报模块 (Reports)](#3-举报模块-reports)
+  - [3.1 提交举报](#31-提交举报)
+  - [3.2 获取我的举报记录](#32-获取我的举报记录)
+  - [3.3 获取举报详情](#33-获取举报详情)
+  - [3.4 获取所有举报列表（管理员）](#34-获取所有举报列表管理员)
+  - [3.5 按状态获取举报列表（管理员）](#35-按状态获取举报列表管理员)
+  - [3.6 按类型获取举报列表（管理员）](#36-按类型获取举报列表管理员)
+  - [3.7 获取举报统计（管理员）](#37-获取举报统计管理员)
+  - [3.8 处理举报（管理员）](#38-处理举报管理员)
+  - [3.9 删除举报（管理员）](#39-删除举报管理员)
+- [4. 用户模块 (Users)](#4-用户模块-users)
+  - [4.1 获取当前用户信息](#41-获取当前用户信息)
+  - [4.2 根据ID获取用户信息](#42-根据id获取用户信息)
+  - [4.3 根据用户名获取用户信息](#43-根据用户名获取用户信息)
+  - [4.4 搜索用户](#44-搜索用户)
+  - [4.5 获取在线用户列表](#45-获取在线用户列表)
+  - [4.6 获取在线用户数量](#46-获取在线用户数量)
+  - [4.7 更新用户资料](#47-更新用户资料)
+  - [4.8 修改密码](#48-修改密码)
+  - [4.9 更新用户状态](#49-更新用户状态)
+- [5. 聊天室模块 (Rooms)](#5-聊天室模块-rooms)
+  - [5.1 创建聊天室](#51-创建聊天室)
+  - [5.2 加入聊天室](#52-加入聊天室)
+  - [5.3 退出聊天室](#53-退出聊天室)
+  - [5.4 删除聊天室](#54-删除聊天室)
+  - [5.5 获取聊天室详情](#55-获取聊天室详情)
+  - [5.6 获取公开聊天室列表](#56-获取公开聊天室列表)
+  - [5.7 获取我的聊天室列表](#57-获取我的聊天室列表)
+  - [5.8 搜索聊天室](#58-搜索聊天室)
+  - [5.9 获取聊天室成员列表](#59-获取聊天室成员列表)
+  - [5.10 踢出成员](#510-踢出成员)
+  - [5.11 设置成员角色](#511-设置成员角色)
+  - [5.12 更新聊天室信息](#512-更新聊天室信息)
+- [6. 消息模块 (Messages)](#6-消息模块-messages)
+  - [6.1 发送消息](#61-发送消息)
+  - [6.2 获取聊天室消息列表](#62-获取聊天室消息列表)
+  - [6.3 获取最近消息](#63-获取最近消息)
+  - [6.4 搜索消息](#64-搜索消息)
+  - [6.5 删除消息](#65-删除消息)
+  - [6.6 获取消息数量](#66-获取消息数量)
+- [7. 管理模块 (Admin)](#7-管理模块)
+  - [7.1 获取仪表盘统计](#71-获取仪表盘统计)
+  - [7.2 获取所有用户](#72-获取所有用户)
+  - [7.3 搜索用户](#73-搜索用户)
+  - [7.4 设置用户角色](#74-设置用户角色)
+  - [7.5 封禁用户](#75-封禁用户)
+  - [7.6 解封用户](#76-解封用户)
+  - [7.7 获取封禁用户列表](#77-获取封禁用户列表)
+  - [7.8 获取用户封禁状态](#78-获取用户封禁状态)
+  - [7.9 获取所有聊天室](#79-获取所有聊天室)
+  - [7.10 删除聊天室](#710-删除聊天室)
+  - [7.11 归档聊天室](#711-归档聊天室)
+  - [7.12 删除消息](#712-删除消息)
+  - [7.13 获取系统日志](#713-获取系统日志)
+  - [7.14 获取日志操作类型列表](#714-获取日志操作类型列表)
+  - [7.15 按操作类型查询日志](#715-按操作类型查询日志)
+  - [7.16 按日期范围查询日志](#716-按日期范围查询日志)
+  - [7.17 按用户查询日志](#717-按用户查询日志)
+- [8. 公告模块 (Announcements)](#8-公告模块-announcements)
+  - [8.1 创建公告](#81-创建公告)
+  - [8.2 更新公告](#82-更新公告)
+  - [8.3 删除公告](#83-删除公告)
+  - [8.4 发布公告](#84-发布公告)
+  - [8.5 取消发布公告](#85-取消发布公告)
+  - [8.6 置顶公告](#86-置顶公告)
+  - [8.7 取消置顶公告](#87-取消置顶公告)
+  - [8.8 标记公告已读](#88-标记公告已读)
+  - [8.9 标记全部已读](#89-标记全部已读)
+  - [8.10 获取公告详情](#810-获取公告详情)
+  - [8.11 获取已发布公告列表](#811-获取已发布公告列表)
+  - [8.12 获取有效公告列表](#812-获取有效公告列表)
+  - [8.13 获取置顶公告列表](#813-获取置顶公告列表)
+  - [8.14 按类型获取公告](#814-按类型获取公告)
+  - [8.15 获取所有公告（管理员）](#815-获取所有公告管理员)
+  - [8.16 获取公告统计（管理员）](#816-获取公告统计管理员)
+  - [8.17 获取用户阅读统计](#817-获取用户阅读统计)
+- [9. 敏感词管理模块 (Sensitive Words)](#9-敏感词管理模块-sensitive-words)
+  - [9.1 添加敏感词](#91-添加敏感词)
+  - [9.2 批量添加敏感词](#92-批量添加敏感词)
+  - [9.3 删除敏感词](#93-删除敏感词)
+  - [9.4 批量删除敏感词](#94-批量删除敏感词)
+  - [9.5 获取所有敏感词](#95-获取所有敏感词)
+  - [9.6 获取敏感词数量](#96-获取敏感词数量)
+  - [9.7 重新加载敏感词](#97-重新加载敏感词)
+  - [9.8 保存敏感词到文件](#98-保存敏感词到文件)
+  - [9.9 检查文本是否包含敏感词](#99-检查文本是否包含敏感词)
+  - [9.10 过滤敏感词](#910-过滤敏感词)
+  - [9.11 查找文本中的敏感词](#911-查找文本中的敏感词)
+- [10. WebSocket 接口](#10-websocket-接口)
+  - [10.1 连接端点](#101-连接端点)
+  - [10.2 订阅主题](#102-订阅主题)
+
+---
+
 ## 基础信息
 
 - **Base URL**: `http://localhost:8080/api`
@@ -2028,7 +2140,464 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-## 8. 敏感词管理模块 (Sensitive Words)
+## 8. 公告模块 (Announcements)
+
+### 8.1 创建公告
+
+**接口地址**: `POST /announcements`
+
+**权限要求**: 管理员
+
+**请求体**:
+```json
+{
+  "title": "系统维护通知",
+  "content": "系统将于今晚22:00-23:00进行维护",
+  "type": "MAINTENANCE",
+  "priority": "HIGH",
+  "isPinned": true,
+  "isPublished": true,
+  "expireAt": "2024-02-01T00:00:00"
+}
+```
+
+**请求参数说明**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| title | String | 是 | 公告标题（最大200字符） |
+| content | String | 是 | 公告内容 |
+| type | String | 否 | 公告类型 |
+| priority | String | 否 | 优先级 |
+| isPinned | Boolean | 否 | 是否置顶，默认false |
+| isPublished | Boolean | 否 | 是否发布，默认false |
+| publishAt | String | 否 | 发布时间（ISO格式） |
+| expireAt | String | 否 | 过期时间（ISO格式） |
+
+**公告类型说明**:
+
+| 类型 | 说明 |
+|------|------|
+| NORMAL | 普通公告 |
+| IMPORTANT | 重要公告 |
+| SYSTEM | 系统公告 |
+| MAINTENANCE | 维护公告 |
+| UPDATE | 更新公告 |
+
+**优先级说明**:
+
+| 优先级 | 说明 |
+|------|------|
+| LOW | 低 |
+| NORMAL | 普通 |
+| HIGH | 高 |
+| URGENT | 紧急 |
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "公告创建成功",
+  "data": {
+    "id": 1,
+    "title": "系统维护通知",
+    "content": "系统将于今晚22:00-23:00进行维护",
+    "type": "MAINTENANCE",
+    "priority": "HIGH",
+    "authorId": 1,
+    "authorName": "admin",
+    "isPinned": true,
+    "isPublished": true,
+    "viewCount": 0,
+    "readCount": 0,
+    "hasRead": false,
+    "createdAt": "2024-01-25T10:00:00"
+  },
+  "timestamp": 1700000000000
+}
+```
+
+---
+
+### 8.2 更新公告
+
+**接口地址**: `PUT /announcements/{id}`
+
+**权限要求**: 管理员
+
+**路径参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| id | Long | 是 | 公告ID |
+
+**请求体**: 同创建公告
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "公告更新成功",
+  "data": { },
+  "timestamp": 1700000000000
+}
+```
+
+---
+
+### 8.3 删除公告
+
+**接口地址**: `DELETE /announcements/{id}`
+
+**权限要求**: 管理员
+
+**路径参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| id | Long | 是 | 公告ID |
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "公告删除成功",
+  "data": null,
+  "timestamp": 1700000000000
+}
+```
+
+---
+
+### 8.4 发布公告
+
+**接口地址**: `POST /announcements/{id}/publish`
+
+**权限要求**: 管理员
+
+**路径参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| id | Long | 是 | 公告ID |
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "公告发布成功",
+  "data": { },
+  "timestamp": 1700000000000
+}
+```
+
+---
+
+### 8.5 取消发布公告
+
+**接口地址**: `POST /announcements/{id}/unpublish`
+
+**权限要求**: 管理员
+
+**路径参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| id | Long | 是 | 公告ID |
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "公告已取消发布",
+  "data": { },
+  "timestamp": 1700000000000
+}
+```
+
+---
+
+### 8.6 置顶公告
+
+**接口地址**: `POST /announcements/{id}/pin`
+
+**权限要求**: 管理员
+
+**路径参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| id | Long | 是 | 公告ID |
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "公告置顶成功",
+  "data": { },
+  "timestamp": 1700000000000
+}
+```
+
+---
+
+### 8.7 取消置顶公告
+
+**接口地址**: `POST /announcements/{id}/unpin`
+
+**权限要求**: 管理员
+
+**路径参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| id | Long | 是 | 公告ID |
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "公告取消置顶成功",
+  "data": { },
+  "timestamp": 1700000000000
+}
+```
+
+---
+
+### 8.8 标记公告已读
+
+**接口地址**: `POST /announcements/{id}/read`
+
+**权限要求**: 需要登录
+
+**路径参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| id | Long | 是 | 公告ID |
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "已标记为已读",
+  "data": null,
+  "timestamp": 1700000000000
+}
+```
+
+---
+
+### 8.9 标记全部已读
+
+**接口地址**: `POST /announcements/read-all`
+
+**权限要求**: 需要登录
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "全部公告已标记为已读",
+  "data": null,
+  "timestamp": 1700000000000
+}
+```
+
+---
+
+### 8.10 获取公告详情
+
+**接口地址**: `GET /announcements/{id}`
+
+**权限要求**: 需要登录
+
+**路径参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| id | Long | 是 | 公告ID |
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": {
+    "id": 1,
+    "title": "系统维护通知",
+    "content": "系统将于今晚22:00-23:00进行维护",
+    "type": "MAINTENANCE",
+    "priority": "HIGH",
+    "authorId": 1,
+    "authorName": "admin",
+    "isPinned": true,
+    "isPublished": true,
+    "viewCount": 100,
+    "readCount": 50,
+    "hasRead": true,
+    "createdAt": "2024-01-25T10:00:00"
+  },
+  "timestamp": 1700000000000
+}
+```
+
+---
+
+### 8.11 获取已发布公告列表
+
+**接口地址**: `GET /announcements/published`
+
+**权限要求**: 需要登录
+
+**查询参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| page | Integer | 否 | 页码，默认0 |
+| size | Integer | 否 | 每页数量，默认10 |
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": {
+    "content": [],
+    "totalElements": 10,
+    "totalPages": 1,
+    "number": 0,
+    "size": 10
+  },
+  "timestamp": 1700000000000
+}
+```
+
+---
+
+### 8.12 获取有效公告列表
+
+**接口地址**: `GET /announcements/active`
+
+**权限要求**: 需要登录
+
+**查询参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| page | Integer | 否 | 页码，默认0 |
+| size | Integer | 否 | 每页数量，默认10 |
+
+**说明**: 返回已发布且未过期的公告
+
+---
+
+### 8.13 获取置顶公告列表
+
+**接口地址**: `GET /announcements/pinned`
+
+**权限要求**: 需要登录
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": [
+    {
+      "id": 1,
+      "title": "系统维护通知",
+      "isPinned": true
+    }
+  ],
+  "timestamp": 1700000000000
+}
+```
+
+---
+
+### 8.14 按类型获取公告
+
+**接口地址**: `GET /announcements/type/{type}`
+
+**权限要求**: 需要登录
+
+**路径参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| type | String | 是 | 公告类型 |
+
+**查询参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| page | Integer | 否 | 页码，默认0 |
+| size | Integer | 否 | 每页数量，默认10 |
+
+---
+
+### 8.15 获取所有公告（管理员）
+
+**接口地址**: `GET /announcements/all`
+
+**权限要求**: 管理员
+
+**查询参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| page | Integer | 否 | 页码，默认0 |
+| size | Integer | 否 | 每页数量，默认10 |
+
+---
+
+### 8.16 获取公告统计（管理员）
+
+**接口地址**: `GET /announcements/statistics`
+
+**权限要求**: 管理员
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": {
+    "total": 20,
+    "published": 15,
+    "pinned": 3
+  },
+  "timestamp": 1700000000000
+}
+```
+
+---
+
+### 8.17 获取用户阅读统计
+
+**接口地址**: `GET /announcements/read-statistics`
+
+**权限要求**: 需要登录
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": {
+    "totalActive": 10,
+    "readCount": 8,
+    "unreadCount": 2
+  },
+  "timestamp": 1700000000000
+}
+```
+
+---
+
+## 9. 敏感词管理模块 (Sensitive Words)
 
 > 所有敏感词管理接口需要 ADMIN 角色
 > 敏感词支持三种高效过滤算法：KMP、Trie树、AC自动机
@@ -2042,7 +2611,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 | Trie | 前缀树算法 | O(n×m) | 前缀匹配，适合大量敏感词 |
 | AC | Aho-Corasick自动机算法 | O(n) | 多模式匹配，推荐使用 |
 
-### 7.1 添加敏感词
+### 9.1 添加敏感词
 
 **接口地址**: `POST /admin/sensitive-words`
 
@@ -2062,7 +2631,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 7.2 批量添加敏感词
+### 9.2 批量添加敏感词
 
 **接口地址**: `POST /admin/sensitive-words/batch`
 
@@ -2085,7 +2654,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 7.3 删除敏感词
+### 9.3 删除敏感词
 
 **接口地址**: `DELETE /admin/sensitive-words`
 
@@ -2105,7 +2674,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 7.4 批量删除敏感词
+### 9.4 批量删除敏感词
 
 **接口地址**: `DELETE /admin/sensitive-words/batch`
 
@@ -2128,7 +2697,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 7.5 获取所有敏感词
+### 9.5 获取所有敏感词
 
 **接口地址**: `GET /admin/sensitive-words`
 
@@ -2146,7 +2715,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 7.6 获取敏感词数量
+### 9.6 获取敏感词数量
 
 **接口地址**: `GET /admin/sensitive-words/count`
 
@@ -2164,7 +2733,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 7.7 重新加载敏感词
+### 9.7 重新加载敏感词
 
 **接口地址**: `POST /admin/sensitive-words/reload`
 
@@ -2204,7 +2773,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 7.9 检查文本是否包含敏感词
+### 9.9 检查文本是否包含敏感词
 
 **接口地址**: `POST /admin/sensitive-words/check`
 
@@ -2244,7 +2813,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 7.11 查找文本中的敏感词
+### 9.11 查找文本中的敏感词
 
 **接口地址**: `POST /admin/sensitive-words/find`
 
@@ -2266,9 +2835,9 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-## 9. WebSocket 接口
+## 10. WebSocket 接口
 
-### 7.1 连接端点
+### 10.1 连接端点
 
 **WebSocket URL**: `ws://localhost:8080/api/ws`
 
@@ -2286,7 +2855,7 @@ stompClient.connect({
 });
 ```
 
-### 7.2 订阅主题
+### 10.2 订阅主题
 
 | 主题 | 说明 |
 |------|------|
@@ -2294,7 +2863,7 @@ stompClient.connect({
 | `/topic/room.{roomId}.typing` | 接收输入状态 |
 | `/topic/user.status` | 接收用户在线状态变化 |
 
-### 7.3 发送消息
+### 10.3 发送消息
 
 **发送目标**: `/app/chat.send.{roomId}`
 
@@ -2307,19 +2876,19 @@ stompClient.connect({
 }
 ```
 
-### 7.4 加入聊天室通知
+### 10.4 加入聊天室通知
 
 **发送目标**: `/app/chat.join.{roomId}`
 
-### 7.5 离开聊天室通知
+### 10.5 离开聊天室通知
 
 **发送目标**: `/app/chat.leave.{roomId}`
 
-### 7.6 输入状态
+### 10.6 输入状态
 
 **发送目标**: `/app/chat.typing.{roomId}`
 
-### 7.7 用户状态更新
+### 10.7 用户状态更新
 
 **发送目标**: `/app/user.status`
 
@@ -2330,11 +2899,46 @@ stompClient.connect({
 }
 ```
 
+### 10.8 心跳机制
+
+> 心跳机制用于保持WebSocket连接活跃，检测连接状态
+
+**心跳间隔**: 30秒
+
+**超时时间**: 90秒（无心跳则判定离线）
+
+**发送目标**: `/app/heartbeat`
+
+**客户端实现示例**:
+```javascript
+// 自动心跳（推荐）
+// Spring WebSocket内置心跳，客户端无需手动发送
+
+// 手动心跳（可选）
+setInterval(() => {
+  stompClient.send('/app/heartbeat', {});
+}, 25000);
+```
+
+**心跳响应**:
+- 服务端收到心跳后更新用户最后活跃时间
+- 超时未收到心跳自动将用户设为离线状态
+- 离线状态会广播到 `/topic/user.status`
+
+**连接保活配置**:
+```yaml
+# application.yaml
+websocket:
+  heartbeat:
+    interval: 30000      # 心跳间隔（毫秒）
+    timeout: 90000       # 超时时间（毫秒）
+```
+
 ---
 
-## 9 数据模型
+## 11. 数据模型
 
-### 8.1 User (用户)
+### 11.1 User (用户)
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
@@ -2347,7 +2951,7 @@ stompClient.connect({
 | role | String | 角色：USER/ADMIN |
 | createdAt | DateTime | 创建时间 |
 
-### 8.2 ChatRoom (聊天室)
+### 11.2 ChatRoom (聊天室)
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
@@ -2363,7 +2967,7 @@ stompClient.connect({
 | memberCount | Integer | 成员数量 |
 | createdAt | DateTime | 创建时间 |
 
-### 8.3 Message (消息)
+### 11.3 Message (消息)
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
@@ -2376,7 +2980,7 @@ stompClient.connect({
 | type | String | 类型：TEXT/IMAGE/FILE/SYSTEM/EMOJI |
 | createdAt | DateTime | 创建时间 |
 
-### 8.4 BannedUser (封禁用户)
+### 11.4 BannedUser (封禁用户)
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
@@ -2392,18 +2996,25 @@ stompClient.connect({
 | active | Boolean | 是否生效 |
 | createdAt | DateTime | 创建时间 |
 
-### 8.5 SensitiveWord (敏感词)
+### 11.5 SensitiveWord (敏感词)
+
+> 敏感词存储在txt文件中，不使用数据库存储
+> 支持三种算法：KMP、Trie树、AC自动机
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| id | Long | 敏感词ID |
 | word | String | 敏感词 |
-| category | String | 分类 |
-| level | Integer | 等级 |
-| replacement | String | 替换文本 |
-| enabled | Boolean | 是否启用 |
 
-### 8.6 SystemLog (系统日志)
+**配置文件**:
+```yaml
+sensitive-word:
+  file-path: sensitive-words.txt
+  algorithm: AC
+  auto-reload: true
+  reload-interval: 300000
+```
+
+### 11.6 SystemLog (系统日志)
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
@@ -2419,7 +3030,7 @@ stompClient.connect({
 | level | String | 级别：INFO/WARNING/ERROR/CRITICAL |
 | createdAt | DateTime | 创建时间 |
 
-### 9.7 EmailVerification (邮箱验证)
+### 11.7 EmailVerification (邮箱验证)
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
@@ -2431,9 +3042,73 @@ stompClient.connect({
 | used | Boolean | 是否已使用 |
 | createdAt | DateTime | 创建时间 |
 
+### 11.8 Report (举报)
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Long | 举报ID |
+| reporterId | Long | 举报人ID |
+| reporterName | String | 举报人名称 |
+| reportedUserId | Long | 被举报用户ID |
+| reportedUserName | String | 被举报用户名称 |
+| reportedRoomId | Long | 被举报聊天室ID |
+| reportedRoomName | String | 被举报聊天室名称 |
+| reportedMessageId | Long | 被举报消息ID |
+| type | String | 举报类型：SPAM/HARASSMENT/INAPPROPRIATE_CONTENT/VIOLENCE/FRAUD/OTHER |
+| targetType | String | 目标类型：USER/ROOM/MESSAGE |
+| reason | String | 举报原因 |
+| description | String | 详细描述 |
+| status | String | 状态：PENDING/PROCESSING/RESOLVED/REJECTED |
+| handlerId | Long | 处理人ID |
+| handlerName | String | 处理人名称 |
+| handleResult | String | 处理结果 |
+| handledAt | DateTime | 处理时间 |
+| createdAt | DateTime | 创建时间 |
+
+### 11.9 EmailSendLog (邮件发送日志)
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Long | 日志ID |
+| email | String | 邮箱地址 |
+| type | String | 邮件类型：VERIFICATION/SIMPLE/HTML |
+| sendDate | Date | 发送日期 |
+| sendCount | Integer | 当日发送次数 |
+| createdAt | DateTime | 创建时间 |
+
+### 11.10 Announcement (公告)
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Long | 公告ID |
+| title | String | 公告标题 |
+| content | String | 公告内容 |
+| type | String | 类型：NORMAL/IMPORTANT/SYSTEM/MAINTENANCE/UPDATE |
+| priority | String | 优先级：LOW/NORMAL/HIGH/URGENT |
+| authorId | Long | 作者ID |
+| authorName | String | 作者名称 |
+| isPinned | Boolean | 是否置顶 |
+| isPublished | Boolean | 是否发布 |
+| publishAt | DateTime | 发布时间 |
+| expireAt | DateTime | 过期时间 |
+| viewCount | Integer | 浏览次数 |
+| readCount | Long | 已读人数 |
+| hasRead | Boolean | 当前用户是否已读 |
+| createdAt | DateTime | 创建时间 |
+| updatedAt | DateTime | 更新时间 |
+
+### 11.11 AnnouncementRead (公告已读记录)
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Long | 记录ID |
+| announcementId | Long | 公告ID |
+| userId | Long | 用户ID |
+| readAt | DateTime | 阅读时间 |
+
 ---
 
-## 11. 错误码说明
+## 12. 错误码说明
 
 | 错误信息 | 说明 |
 |----------|------|
@@ -2457,13 +3132,24 @@ stompClient.connect({
 | 请等待X秒后再发送验证码 | 验证码发送间隔限制 |
 | 验证码无效或已过期 | 验证码错误或过期 |
 | 无效的验证类型 | 验证类型参数错误 |
+| 今日举报次数已达上限 | 每日举报次数超限 |
+| 该用户已有待处理的举报 | 重复举报限制 |
+| 该消息已有待处理的举报 | 重复举报限制 |
+| 举报记录不存在 | 举报ID无效 |
+| 该举报已处理完成 | 已处理的举报不可重复处理 |
+| 无效的举报类型 | 举报类型参数错误 |
+| 无效的举报目标类型 | 目标类型参数错误 |
+| 无效的举报状态 | 状态参数错误 |
+| 今日发送邮件次数已达上限 | 每日邮件发送次数超限 |
 
 ---
 
-## 12. 版本历史
+## 13. 版本历史
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
 | v1.0.0 | 2024-01-01 | 初始版本，包含基础聊天功能 |
 | v1.1.0 | 2024-01-15 | 新增管理功能和敏感词过滤 |
 | v1.2.0 | 2024-01-20 | 新增邮箱验证功能 |
+| v1.3.0 | 2024-01-25 | 新增举报功能和邮件每日发送限制 |
+| v1.4.0 | 2024-01-30 | 新增公告管理功能 |

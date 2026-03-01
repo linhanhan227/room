@@ -1,7 +1,8 @@
 package com.chat.room.util;
 
+import com.chat.room.config.AppProperties;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 
@@ -18,13 +19,10 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class SensitiveWordLoader {
 
-    @Value("${sensitive-word.file-path:sensitive_words.txt}")
-    private String filePath;
-
-    @Value("${sensitive-word.enabled:true}")
-    private boolean enabled;
+    private final AppProperties appProperties;
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
     private volatile Set<String> sensitiveWords = new HashSet<>();
@@ -34,12 +32,13 @@ public class SensitiveWordLoader {
         try {
             Set<String> words = new HashSet<>();
             
-            if (!enabled) {
+            if (!appProperties.getSensitiveWord().isEnabled()) {
                 log.info("敏感词过滤功能已禁用");
                 this.sensitiveWords = words;
                 return words;
             }
 
+            String filePath = appProperties.getSensitiveWord().getFilePath();
             try {
                 Path path = Paths.get(filePath);
                 if (Files.exists(path)) {
@@ -116,6 +115,7 @@ public class SensitiveWordLoader {
     public void saveToFile() {
         lock.readLock().lock();
         try {
+            String filePath = appProperties.getSensitiveWord().getFilePath();
             Path path = Paths.get(filePath);
             Set<String> words = new HashSet<>(sensitiveWords);
             

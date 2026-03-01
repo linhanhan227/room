@@ -1,12 +1,12 @@
 package com.chat.room.service;
 
+import com.chat.room.config.AppProperties;
 import com.chat.room.entity.EmailVerification;
 import com.chat.room.entity.User;
 import com.chat.room.repository.EmailVerificationRepository;
 import com.chat.room.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,15 +22,8 @@ public class EmailVerificationService {
     private final EmailVerificationRepository verificationRepository;
     private final UserRepository userRepository;
     private final EmailService emailService;
+    private final AppProperties appProperties;
 
-    @Value("${email.verification.code-expiration}")
-    private int codeExpiration;
-
-    @Value("${email.verification.code-length}")
-    private int codeLength;
-
-    private static final int MAX_SEND_COUNT_PER_HOUR = 5;
-    private static final int SEND_INTERVAL_SECONDS = 60;
     private final SecureRandom random = new SecureRandom();
 
     @Transactional
@@ -38,7 +31,7 @@ public class EmailVerificationService {
         validateEmailRequest(email, type);
 
         String code = generateCode();
-        LocalDateTime expiresAt = LocalDateTime.now().plusSeconds(codeExpiration);
+        LocalDateTime expiresAt = LocalDateTime.now().plusSeconds(appProperties.getEmail().getVerification().getCodeExpiration());
 
         EmailVerification verification = EmailVerification.builder()
                 .email(email)
@@ -109,28 +102,31 @@ public class EmailVerificationService {
             }
         }
 
+        int maxSendPerHour = appProperties.getEmail().getVerification().getMaxSendPerHour();
         long recentCount = verificationRepository.countByEmailAndCreatedAtAfter(
                 email, LocalDateTime.now().minusHours(1));
-        if (recentCount >= MAX_SEND_COUNT_PER_HOUR) {
+        if (recentCount >= maxSendPerHour) {
             throw new RuntimeException("发送验证码次数过多，请1小时后再试");
         }
 
         Optional<EmailVerification> lastVerification = verificationRepository
                 .findTopByEmailAndTypeAndUsedFalseOrderByCreatedAtDesc(email, type);
         
+        int sendIntervalSeconds = appProperties.getEmail().getVerification().getSendIntervalSeconds();
         if (lastVerification.isPresent()) {
             LocalDateTime lastSentTime = lastVerification.get().getCreatedAt();
             long secondsSinceLastSent = java.time.Duration.between(
                     lastSentTime, LocalDateTime.now()).getSeconds();
             
-            if (secondsSinceLastSent < SEND_INTERVAL_SECONDS) {
-                long waitSeconds = SEND_INTERVAL_SECONDS - secondsSinceLastSent;
+            if (secondsSinceLastSent < sendIntervalSeconds) {
+                long waitSeconds = sendIntervalSeconds - secondsSinceLastSent;
                 throw new RuntimeException("请等待" + waitSeconds + "秒后再发送验证码");
             }
         }
     }
 
     private String generateCode() {
+        int codeLength = appProperties.getEmail().getVerification().getCodeLength();
         int max = (int) Math.pow(10, codeLength) - 1;
         int min = (int) Math.pow(10, codeLength - 1);
         int code = random.nextInt(max - min + 1) + min;

@@ -1,9 +1,10 @@
 package com.chat.room.security;
 
+import com.chat.room.config.AppProperties;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
@@ -16,16 +17,13 @@ import java.util.function.Function;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class JwtTokenProvider {
 
-    @Value("${jwt.secret}")
-    private String secret;
-
-    @Value("${jwt.expiration}")
-    private Long expiration;
+    private final AppProperties appProperties;
 
     private SecretKey getSigningKey() {
-        byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
+        byte[] keyBytes = appProperties.getJwt().getSecret().getBytes(StandardCharsets.UTF_8);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
@@ -41,7 +39,7 @@ public class JwtTokenProvider {
 
     private String createToken(Map<String, Object> claims, String subject) {
         Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + expiration);
+        Date expiryDate = new Date(now.getTime() + appProperties.getJwt().getExpiration());
 
         return Jwts.builder()
                 .claims(claims)
@@ -106,6 +104,6 @@ public class JwtTokenProvider {
     }
 
     public Long getExpiration() {
-        return expiration;
+        return appProperties.getJwt().getExpiration();
     }
 }

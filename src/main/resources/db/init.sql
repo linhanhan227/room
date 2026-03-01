@@ -245,6 +245,60 @@ CREATE TABLE IF NOT EXISTS email_send_logs (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='邮件发送日志表';
 
 -- =============================================
+-- 10. 公告表 (announcements)
+-- 存储系统公告信息
+-- =============================================
+CREATE TABLE IF NOT EXISTS announcements (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '公告ID，主键自增',
+    title VARCHAR(200) NOT NULL COMMENT '公告标题',
+    content TEXT NOT NULL COMMENT '公告内容',
+    type VARCHAR(20) DEFAULT 'NORMAL' COMMENT '公告类型：NORMAL-普通, IMPORTANT-重要, SYSTEM-系统, MAINTENANCE-维护, UPDATE-更新',
+    priority VARCHAR(20) DEFAULT 'NORMAL' COMMENT '优先级：LOW-低, NORMAL-普通, HIGH-高, URGENT-紧急',
+    author_id BIGINT COMMENT '作者ID',
+    is_pinned BOOLEAN DEFAULT FALSE COMMENT '是否置顶',
+    is_published BOOLEAN DEFAULT FALSE COMMENT '是否发布',
+    publish_at DATETIME COMMENT '发布时间',
+    expire_at DATETIME COMMENT '过期时间',
+    view_count INT DEFAULT 0 COMMENT '浏览次数',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    
+    -- 索引定义
+    INDEX idx_author (author_id) COMMENT '作者索引',
+    INDEX idx_type (type) COMMENT '类型索引',
+    INDEX idx_priority (priority) COMMENT '优先级索引',
+    INDEX idx_is_pinned (is_pinned) COMMENT '置顶索引',
+    INDEX idx_is_published (is_published) COMMENT '发布状态索引',
+    INDEX idx_publish_at (publish_at) COMMENT '发布时间索引',
+    INDEX idx_expire_at (expire_at) COMMENT '过期时间索引',
+    INDEX idx_created_at (created_at) COMMENT '创建时间索引',
+    
+    -- 外键约束
+    FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='公告表';
+
+-- =============================================
+-- 11. 公告已读记录表 (announcement_reads)
+-- 记录用户已读公告
+-- =============================================
+CREATE TABLE IF NOT EXISTS announcement_reads (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '记录ID，主键自增',
+    announcement_id BIGINT NOT NULL COMMENT '公告ID',
+    user_id BIGINT NOT NULL COMMENT '用户ID',
+    read_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '阅读时间',
+    
+    -- 索引定义
+    INDEX idx_announcement (announcement_id) COMMENT '公告索引',
+    INDEX idx_user (user_id) COMMENT '用户索引',
+    INDEX idx_read_at (read_at) COMMENT '阅读时间索引',
+    UNIQUE KEY uk_announcement_user (announcement_id, user_id) COMMENT '公告用户唯一索引',
+    
+    -- 外键约束
+    FOREIGN KEY (announcement_id) REFERENCES announcements(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='公告已读记录表';
+
+-- =============================================
 -- 初始化数据
 -- =============================================
 

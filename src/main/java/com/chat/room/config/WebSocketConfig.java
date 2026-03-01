@@ -8,6 +8,7 @@ import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
+import org.springframework.web.socket.config.annotation.WebSocketTransportRegistration;
 
 @Configuration
 @EnableWebSocketMessageBroker
@@ -15,26 +16,42 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final WebSocketAuthChannelInterceptor webSocketAuthChannelInterceptor;
+    private final AppProperties appProperties;
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
-        config.enableSimpleBroker("/topic", "/queue");
+        long heartbeatInterval = appProperties.getWebSocket().getHeartbeatInterval();
+        config.enableSimpleBroker("/topic", "/queue")
+                .setHeartbeatValue(new long[]{heartbeatInterval, heartbeatInterval});
         config.setApplicationDestinationPrefixes("/app");
         config.setUserDestinationPrefix("/user");
     }
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns("*")
-                .withSockJS();
+        long heartbeatInterval = appProperties.getWebSocket().getHeartbeatInterval();
+        String endpoint = appProperties.getWebSocket().getEndpoint();
         
-        registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns("*");
+        registry.addEndpoint(endpoint)
+                .setAllowedOriginPatterns(appProperties.getWebSocket().getAllowedOrigins())
+                .withSockJS()
+                .setHeartbeatTime(heartbeatInterval);
+        
+        registry.addEndpoint(endpoint)
+                .setAllowedOriginPatterns(appProperties.getWebSocket().getAllowedOrigins());
     }
 
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
         registration.interceptors(webSocketAuthChannelInterceptor);
+    }
+
+    @Override
+    public void configureWebSocketTransport(WebSocketTransportRegistration registration) {
+        AppProperties.WebSocket ws = appProperties.getWebSocket();
+        registration.setMessageSizeLimit(ws.getMessageSizeLimit());
+        registration.setSendBufferSizeLimit(ws.getSendBufferSizeLimit());
+        registration.setSendTimeLimit(ws.getSendTimeLimit());
+        registration.setTimeToFirstMessage(ws.getTimeToFirstMessage());
     }
 }
