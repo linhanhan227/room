@@ -3,13 +3,17 @@ package com.chat.room.controller;
 import com.chat.room.dto.*;
 import com.chat.room.entity.RoomMember;
 import com.chat.room.entity.User;
+import com.chat.room.repository.UserRepository;
+import com.chat.room.security.UserPrincipal;
 import com.chat.room.service.ChatRoomService;
+import com.chat.room.service.recommendation.RoomRecommendationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,6 +25,8 @@ import java.util.stream.Collectors;
 public class ChatRoomController {
 
     private final ChatRoomService chatRoomService;
+    private final RoomRecommendationService recommendationService;
+    private final UserRepository userRepository;
 
     @PostMapping
     public ResponseEntity<ApiResponse<ChatRoomDTO>> createRoom(@Valid @RequestBody CreateRoomRequest request) {
@@ -111,5 +117,43 @@ public class ChatRoomController {
             @Valid @RequestBody CreateRoomRequest request) {
         ChatRoomDTO room = chatRoomService.updateRoom(roomId, request);
         return ResponseEntity.ok(ApiResponse.success("Room updated successfully", room));
+    }
+
+    @GetMapping("/recommendations")
+    public ResponseEntity<ApiResponse<List<ChatRoomDTO>>> getRecommendations(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) String strategy,
+            @RequestParam(defaultValue = "10") int limit) {
+        
+        List<ChatRoomDTO> recommendations;
+        
+        if (principal != null) {
+            User user = userRepository.findById(principal.getId()).orElse(null);
+            if (strategy != null && !strategy.isEmpty()) {
+                recommendations = recommendationService.getRecommendations(strategy, user, limit);
+            } else {
+                recommendations = recommendationService.getRecommendations(user, limit);
+            }
+        } else {
+            if (strategy != null && !strategy.isEmpty()) {
+                recommendations = recommendationService.getRecommendations(strategy, null, limit);
+            } else {
+                recommendations = recommendationService.getRecommendationsForAnonymous(limit);
+            }
+        }
+        
+        return ResponseEntity.ok(ApiResponse.success(recommendations));
+    }
+
+    @GetMapping("/recommendations/strategies")
+    public ResponseEntity<ApiResponse<List<String>>> getAvailableStrategies() {
+        List<String> strategies = recommendationService.getAvailableStrategies();
+        return ResponseEntity.ok(ApiResponse.success(strategies));
+    }
+
+    @GetMapping("/recommendations/default")
+    public ResponseEntity<ApiResponse<String>> getDefaultStrategy() {
+        String defaultStrategy = recommendationService.getDefaultStrategyName();
+        return ResponseEntity.ok(ApiResponse.success(defaultStrategy));
     }
 }

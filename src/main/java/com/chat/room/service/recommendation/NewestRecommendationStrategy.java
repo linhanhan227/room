@@ -1,0 +1,49 @@
+package com.chat.room.service.recommendation;
+
+import com.chat.room.dto.ChatRoomDTO;
+import com.chat.room.entity.ChatRoom;
+import com.chat.room.entity.User;
+import com.chat.room.repository.ChatRoomRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class NewestRecommendationStrategy implements RoomRecommendationStrategy {
+
+    private final ChatRoomRepository chatRoomRepository;
+
+    @Override
+    public String getName() {
+        return "NEWEST";
+    }
+
+    @Override
+    public List<ChatRoomDTO> recommend(User user, int limit) {
+        return recommend(limit);
+    }
+
+    @Override
+    public List<ChatRoomDTO> recommend(int limit) {
+        log.debug("Using NEWEST recommendation strategy, limit: {}", limit);
+        
+        List<ChatRoom> rooms = chatRoomRepository.findPublicRooms(
+                PageRequest.of(0, limit, Sort.by(Sort.Direction.DESC, "createdAt"))
+        ).getContent();
+        
+        return rooms.stream()
+                .map(room -> {
+                    ChatRoomDTO dto = ChatRoomDTO.fromEntity(room);
+                    dto.setMemberCount(chatRoomRepository.countMembersByRoomId(room.getId()));
+                    return dto;
+                })
+                .collect(Collectors.toList());
+    }
+}

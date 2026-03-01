@@ -178,6 +178,20 @@ app:
     username-max-length: 20  # 用户名最大长度
     login-max-attempts: 5  # 最大登录尝试次数
     login-lock-duration: 1800000  # 登录锁定时长(毫秒), 默认30分钟
+  
+  # -------------------------------------------
+  # 聊天室推荐算法配置
+  # -------------------------------------------
+  room-recommendation:
+    enabled: true  # 是否启用推荐功能
+    default-strategy: HYBRID  # 默认推荐策略: ACTIVITY/POPULARITY/NEWEST/RANDOM/HYBRID
+    recommendation-limit: 10  # 默认推荐数量
+    cache-duration: 300  # 推荐结果缓存时间(秒)
+    hybrid-weights:  # 混合策略权重配置(仅当default-strategy=HYBRID时生效)
+      activity-weight: 0.3  # 活跃度权重
+      popularity-weight: 0.3  # 热度权重
+      newest-weight: 0.2  # 最新权重
+      random-weight: 0.2  # 随机权重
 
 # =============================================
 # 日志配置

@@ -1,121 +1,121 @@
-# WebSocket 接口文档
-
-## 基础信息
-
-- **WebSocket URL**: `ws://localhost:8080/api/ws`
-- **协议**: WebSocket over STOMP
-- **数据格式**: JSON
-- **字符编码**: UTF-8
-- **认证方式**: JWT Bearer Token
-
----
-
-## 通用说明
-
-### 连接认证
-
-WebSocket 连接时需要在 STOMP CONNECT 帧中携带 JWT Token：
-
-```
-Authorization: Bearer <token>
-```
-
-### 消息格式
-
-**发送消息格式**:
-```json
-{
-  "content": "消息内容",
-  "type": "TEXT"
-}
-```
-
-**接收消息格式**:
-```json
-{
-  "id": 1,
-  "roomId": 100,
-  "senderId": 1,
-  "senderName": "张三",
-  "senderAvatar": "http://example.com/avatar.jpg",
-  "content": "Hello, World!",
-  "type": "TEXT",
-  "createdAt": "2024-01-01T12:00:00"
-}
-```
-
-### 错误响应格式
-
-```json
-{
-  "error": "错误类型",
-  "message": "错误信息描述"
-}
-```
-
-### 连接状态码
-
-| 状态码 | 说明 |
-|--------|------|
-| 1000 | 正常关闭 |
-| 1001 | 端点离开 |
-| 1002 | 协议错误 |
-| 1003 | 不支持的数据类型 |
-| 1008 | 策略违规 |
-| 1011 | 内部错误 |
-| 1012 | 服务重启 |
-| 1013 | 稍后重试 |
-
----
+# WebSocket 实时通信文档
 
 ## 目录
 
-- [1. 连接管理](#1-连接管理)
-  - [1.1 建立连接](#11-建立连接)
-  - [1.2 断开连接](#12-断开连接)
-  - [1.3 心跳检测](#13-心跳检测)
-- [2. 消息订阅](#2-消息订阅)
-  - [2.1 订阅聊天室消息](#21-订阅聊天室消息)
-  - [2.2 订阅输入状态](#22-订阅输入状态)
-  - [2.3 订阅用户状态](#23-订阅用户状态)
-  - [2.4 订阅个人通知](#24-订阅个人通知)
-- [3. 消息发送](#3-消息发送)
-  - [3.1 发送聊天消息](#31-发送聊天消息)
-  - [3.2 加入聊天室](#32-加入聊天室)
-  - [3.3 离开聊天室](#33-离开聊天室)
-  - [3.4 发送输入状态](#34-发送输入状态)
-  - [3.5 更新用户状态](#35-更新用户状态)
-- [4. 数据模型](#4-数据模型)
-- [5. 使用示例](#5-使用示例)
-- [6. 错误处理](#6-错误处理)
-- [7. 配置参数](#7-配置参数)
+1. [概述](#1-概述)
+2. [连接配置](#2-连接配置)
+3. [认证机制](#3-认证机制)
+4. [消息格式](#4-消息格式)
+5. [订阅主题](#5-订阅主题)
+6. [消息发送](#6-消息发送)
+7. [心跳机制](#7-心跳机制)
+8. [事件通知](#8-事件通知)
+9. [错误处理](#9-错误处理)
+10. [客户端示例](#10-客户端示例)
+11. [最佳实践](#11-最佳实践)
 
 ---
 
-## 1. 连接管理
+## 1. 概述
 
-### 1.1 建立连接
+### 1.1 技术栈
 
-**连接端点**: `ws://localhost:8080/api/ws`
+本项目使用 **STOMP** (Simple Text Oriented Messaging Protocol) over WebSocket 进行实时通信。
 
-**协议**: STOMP over WebSocket / SockJS
+**核心技术**:
+- Spring WebSocket
+- STOMP 协议
+- SockJS (可选，用于降级支持)
 
-**权限要求**: 需要登录
+### 1.2 为什么选择 STOMP
 
-**连接头参数**:
+STOMP 提供了比原生 WebSocket 更丰富的功能：
 
-| 参数名 | 类型 | 必填 | 说明 |
-|--------|------|------|------|
-| Authorization | String | 是 | JWT Token，格式: `Bearer <token>` |
+| 特性 | 原生 WebSocket | STOMP |
+|------|---------------|-------|
+| 消息格式 | 自定义 | 标准化 |
+| 订阅/发布 | 需自行实现 | 内置支持 |
+| 认证 | 需自行实现 | 支持握手认证 |
+| 错误处理 | 基础 | 完善的错误帧 |
+| 心跳 | 需自行实现 | 内置心跳机制 |
 
-**连接示例**:
+### 1.3 架构图
+
+```
+┌─────────────┐      WebSocket      ┌─────────────────┐
+│   Client    │◄──────────────────►│   Spring Boot   │
+│  (Browser)  │    STOMP Protocol  │    Server       │
+└─────────────┘                     └─────────────────┘
+       │                                   │
+       │ Subscribe                         │
+       │ /topic/room.{id}                  │
+       ▼                                   ▼
+┌─────────────┐                     ┌─────────────────┐
+│   Topic     │                     │   Message       │
+│   Broker    │◄────────────────────│   Handler       │
+└─────────────┘                     └─────────────────┘
+```
+
+---
+
+## 2. 连接配置
+
+### 2.1 连接端点
+
+| 环境 | 端点地址 |
+|------|----------|
+| 开发环境 | `ws://localhost:8080/ws` |
+| 生产环境 | `wss://your-domain.com/ws` |
+
+### 2.2 连接参数
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| heartbeatInterval | Long | 30000 | 心跳间隔（毫秒） |
+| heartbeatTimeout | Long | 90000 | 心跳超时（毫秒） |
+| messageSizeLimit | Integer | 65536 | 消息大小限制（字节） |
+| sendBufferSizeLimit | Integer | 524288 | 发送缓冲区大小（字节） |
+| sendTimeLimit | Integer | 20000 | 发送超时（毫秒） |
+| timeToFirstMessage | Integer | 30000 | 首条消息超时（毫秒） |
+
+### 2.3 SockJS 降级支持
+
+服务器同时支持原生 WebSocket 和 SockJS 降级：
 
 ```javascript
-const socket = new SockJS('http://localhost:8080/api/ws');
-const stompClient = Stomp.over(socket);
+// 原生 WebSocket
+const socket = new WebSocket('ws://localhost:8080/ws');
 
+// SockJS 降级
+const socket = new SockJS('http://localhost:8080/ws');
+```
+
+**SockJS 降级策略**:
+1. 首选 WebSocket
+2. HTTP Streaming
+3. HTTP Long Polling
+
+### 2.4 跨域配置
+
+允许的源（Allowed Origins）通过配置文件设置：
+
+```yaml
+app:
+  websocket:
+    allowed-origins: "*"
+```
+
+---
+
+## 3. 认证机制
+
+### 3.1 连接认证
+
+WebSocket 连接时需要在 STOMP CONNECT 帧中携带 JWT Token：
+
+```javascript
 const headers = {
-    'Authorization': 'Bearer ' + yourJwtToken
+    'Authorization': 'Bearer ' + jwtToken
 };
 
 stompClient.connect(headers, function(frame) {
@@ -125,283 +125,131 @@ stompClient.connect(headers, function(frame) {
 });
 ```
 
-**连接成功响应**:
+### 3.2 认证流程
+
 ```
-CONNECTED
-version:1.2
-heart-beat:30000,30000
-server:ActiveMQ/5.12.1
+┌─────────┐                    ┌─────────────┐
+│  Client │                    │   Server    │
+└────┬────┘                    └──────┬──────┘
+     │                                │
+     │  1. HTTP Login                 │
+     │───────────────────────────────►│
+     │                                │
+     │  2. JWT Token                  │
+     │◄───────────────────────────────│
+     │                                │
+     │  3. WebSocket Connect          │
+     │  + Authorization Header        │
+     │───────────────────────────────►│
+     │                                │
+     │  4. Validate Token             │
+     │                                ├───►
+     │                                │
+     │  5. Connected                  │
+     │◄───────────────────────────────│
+     │                                │
 ```
 
-**连接失败响应**:
+### 3.3 Token 验证
+
+服务器端验证流程：
+
+1. 从 STOMP CONNECT 帧获取 `Authorization` 头
+2. 提取 Bearer Token
+3. 验证 Token 有效性
+4. 解析用户信息
+5. 设置用户身份到 WebSocket Session
+
+### 3.4 认证失败
+
+认证失败时，服务器将拒绝连接：
+
 ```json
 {
-  "error": "Unauthorized",
-  "message": "Invalid or expired token"
+    "command": "ERROR",
+    "headers": {
+        "message": "Unauthorized"
+    },
+    "body": "Invalid or expired token"
 }
 ```
 
 ---
 
-### 1.2 断开连接
+## 4. 消息格式
 
-**操作类型**: DISCONNECT
+### 4.1 STOMP 帧格式
 
-**权限要求**: 需要已连接
+STOMP 协议使用帧（Frame）进行通信：
 
-**断开示例**:
+```
+COMMAND
+header1:value1
+header2:value2
 
-```javascript
-stompClient.disconnect(function() {
-    console.log('Disconnected');
-});
+Body^@
 ```
 
-**断开流程**:
-1. 客户端发送 DISCONNECT 帧
-2. 服务端更新用户状态为 OFFLINE
-3. 广播用户离线状态到 `/topic/user.status`
-4. 关闭 WebSocket 连接
+### 4.2 消息类型
 
----
+#### 4.2.1 文本消息
 
-### 1.3 心跳检测
-
-**目的地址**: `/app/heartbeat`
-
-**权限要求**: 需要登录
-
-**请求体**: 无
-
-**说明**:
-- STOMP 客户端会自动处理心跳，无需手动发送
-- 心跳间隔默认 30 秒
-- 超时时间默认 90 秒
-
-**手动心跳示例**:
-
-```javascript
-stompClient.send('/app/heartbeat', {}, JSON.stringify({}));
-```
-
-**心跳配置**:
-
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| 心跳间隔 | 30000ms | 客户端/服务端心跳发送间隔 |
-| 心跳超时 | 90000ms | 超过此时间未收到心跳则判定离线 |
-
-**超时处理**:
-1. 将用户状态更新为 `OFFLINE`
-2. 广播用户离线状态到 `/topic/user.status`
-3. 从心跳监控列表中移除用户
-
----
-
-## 2. 消息订阅
-
-### 2.1 订阅聊天室消息
-
-**订阅地址**: `/topic/room.{roomId}`
-
-**权限要求**: 需要登录且已加入聊天室
-
-**路径参数**:
-
-| 参数名 | 类型 | 必填 | 说明 |
-|--------|------|------|------|
-| roomId | Long | 是 | 聊天室ID |
-
-**订阅示例**:
-
-```javascript
-stompClient.subscribe('/topic/room.' + roomId, function(message) {
-    const msg = JSON.parse(message.body);
-    console.log('Received message:', msg);
-});
-```
-
-**消息格式 (MessageDTO)**:
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | Long | 消息ID |
-| roomId | Long | 聊天室ID |
-| senderId | Long | 发送者ID |
-| senderName | String | 发送者昵称 |
-| senderAvatar | String | 发送者头像URL |
-| content | String | 消息内容 |
-| type | String | 消息类型: TEXT/IMAGE/FILE/SYSTEM |
-| createdAt | DateTime | 发送时间 |
-
-**消息示例**:
 ```json
 {
     "id": 1,
     "roomId": 100,
-    "senderId": 1,
+    "senderId": 123,
     "senderName": "张三",
-    "senderAvatar": "http://example.com/avatar.jpg",
-    "content": "Hello, World!",
+    "senderAvatar": "https://example.com/avatar.jpg",
+    "content": "大家好！",
     "type": "TEXT",
-    "createdAt": "2024-01-01T12:00:00"
+    "createdAt": "2024-01-20T10:30:00"
 }
 ```
 
----
+#### 4.2.2 图片消息
 
-### 2.2 订阅输入状态
-
-**订阅地址**: `/topic/room.{roomId}.typing`
-
-**权限要求**: 需要登录且已加入聊天室
-
-**路径参数**:
-
-| 参数名 | 类型 | 必填 | 说明 |
-|--------|------|------|------|
-| roomId | Long | 是 | 聊天室ID |
-
-**订阅示例**:
-
-```javascript
-stompClient.subscribe('/topic/room.' + roomId + '.typing', function(message) {
-    const typingEvent = JSON.parse(message.body);
-    console.log(typingEvent.username + ' is typing...');
-});
-```
-
-**消息格式 (TypingEvent)**:
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| userId | Long | 用户ID |
-| username | String | 用户昵称 |
-| typing | Boolean | 是否正在输入 |
-
-**消息示例**:
 ```json
 {
-    "userId": 1,
-    "username": "张三",
-    "typing": true
+    "id": 2,
+    "roomId": 100,
+    "senderId": 123,
+    "senderName": "张三",
+    "content": "https://example.com/images/photo.jpg",
+    "type": "IMAGE",
+    "createdAt": "2024-01-20T10:31:00"
 }
 ```
 
----
+#### 4.2.3 系统消息
 
-### 2.3 订阅用户状态
-
-**订阅地址**: `/topic/user.status`
-
-**权限要求**: 需要登录
-
-**订阅示例**:
-
-```javascript
-stompClient.subscribe('/topic/user.status', function(message) {
-    const statusEvent = JSON.parse(message.body);
-    console.log('User ' + statusEvent.userId + ' is now ' + statusEvent.status);
-});
-```
-
-**消息格式 (StatusEvent)**:
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| userId | Long | 用户ID |
-| username | String | 用户昵称 |
-| status | String | 状态: ONLINE/OFFLINE/AFK/BUSY |
-
-**消息示例**:
 ```json
 {
-    "userId": 1,
-    "username": "张三",
-    "status": "ONLINE"
+    "id": null,
+    "roomId": 100,
+    "senderId": 0,
+    "senderName": "System",
+    "content": "张三 加入了聊天室",
+    "type": "SYSTEM",
+    "createdAt": "2024-01-20T10:32:00"
 }
 ```
 
-**状态说明**:
+#### 4.2.4 表情消息
 
-| 状态 | 说明 |
-|------|------|
-| ONLINE | 在线 |
-| OFFLINE | 离线 |
-| AFK | 离开 |
-| BUSY | 忙碌 |
-
----
-
-### 2.4 订阅个人通知
-
-**订阅地址**: `/user/queue/notifications`
-
-**权限要求**: 需要登录
-
-**订阅示例**:
-
-```javascript
-stompClient.subscribe('/user/queue/notifications', function(message) {
-    const notification = JSON.parse(message.body);
-    console.log('Notification:', notification);
-});
-```
-
-**消息格式 (NotificationDTO)**:
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | Long | 通知ID |
-| type | String | 通知类型 |
-| title | String | 通知标题 |
-| content | String | 通知内容 |
-| read | Boolean | 是否已读 |
-| createdAt | DateTime | 创建时间 |
-
----
-
-## 3. 消息发送
-
-### 3.1 发送聊天消息
-
-**目的地址**: `/app/chat.send.{roomId}`
-
-**权限要求**: 需要登录且已加入聊天室
-
-**路径参数**:
-
-| 参数名 | 类型 | 必填 | 说明 |
-|--------|------|------|------|
-| roomId | Long | 是 | 聊天室ID |
-
-**请求体**:
-
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| content | String | 是 | 消息内容 |
-| type | String | 否 | 消息类型: TEXT/IMAGE/FILE，默认 TEXT |
-
-**请求示例**:
 ```json
 {
-    "content": "Hello, World!",
-    "type": "TEXT"
+    "id": 3,
+    "roomId": 100,
+    "senderId": 123,
+    "senderName": "张三",
+    "content": "😀",
+    "type": "EMOJI",
+    "createdAt": "2024-01-20T10:33:00"
 }
 ```
 
-**发送示例**:
-
-```javascript
-stompClient.send('/app/chat.send.' + roomId, {}, JSON.stringify({
-    content: 'Hello, World!',
-    type: 'TEXT'
-}));
-```
-
-**响应**: 消息广播到 `/topic/room.{roomId}`，格式见 [2.1 订阅聊天室消息](#21-订阅聊天室消息)
-
-**消息类型说明**:
+### 4.3 消息类型枚举
 
 | 类型 | 说明 |
 |------|------|
@@ -409,30 +257,167 @@ stompClient.send('/app/chat.send.' + roomId, {}, JSON.stringify({
 | IMAGE | 图片消息 |
 | FILE | 文件消息 |
 | SYSTEM | 系统消息 |
+| EMOJI | 表情消息 |
 
 ---
 
-### 3.2 加入聊天室
+## 5. 订阅主题
 
-**目的地址**: `/app/chat.join.{roomId}`
+### 5.1 主题前缀说明
 
-**权限要求**: 需要登录
+| 前缀 | 说明 | 用途 |
+|------|------|------|
+| `/topic` | 广播主题 | 多用户订阅，消息广播给所有订阅者 |
+| `/queue` | 点对点队列 | 单用户订阅，消息只发送给特定用户 |
+| `/user` | 用户专属 | 用户私有消息 |
 
-**路径参数**:
+### 5.2 聊天室消息主题
 
-| 参数名 | 类型 | 必填 | 说明 |
-|--------|------|------|------|
-| roomId | Long | 是 | 聊天室ID |
+**订阅地址**: `/topic/room.{roomId}`
 
-**请求体**: 无
+**用途**: 接收聊天室内的所有消息
 
-**发送示例**:
-
+**示例**:
 ```javascript
-stompClient.send('/app/chat.join.' + roomId, {}, JSON.stringify({}));
+stompClient.subscribe('/topic/room.100', function(message) {
+    const msg = JSON.parse(message.body);
+    console.log('收到消息:', msg);
+});
 ```
 
-**响应**: 系统消息广播到 `/topic/room.{roomId}`
+**消息内容**:
+```json
+{
+    "id": 1,
+    "roomId": 100,
+    "senderId": 123,
+    "senderName": "张三",
+    "content": "大家好！",
+    "type": "TEXT",
+    "createdAt": "2024-01-20T10:30:00"
+}
+```
+
+---
+
+### 5.3 输入状态主题
+
+**订阅地址**: `/topic/room.{roomId}.typing`
+
+**用途**: 显示用户正在输入的状态
+
+**示例**:
+```javascript
+stompClient.subscribe('/topic/room.100.typing', function(message) {
+    const data = JSON.parse(message.body);
+    console.log(data.username + ' 正在输入...');
+});
+```
+
+**消息内容**:
+```json
+{
+    "userId": 123,
+    "username": "张三",
+    "typing": true
+}
+```
+
+---
+
+### 5.4 用户状态主题
+
+**订阅地址**: `/topic/user.status`
+
+**用途**: 监听用户在线状态变化
+
+**示例**:
+```javascript
+stompClient.subscribe('/topic/user.status', function(message) {
+    const data = JSON.parse(message.body);
+    console.log('用户 ' + data.username + ' 状态: ' + data.status);
+});
+```
+
+**消息内容**:
+```json
+{
+    "userId": 123,
+    "username": "张三",
+    "status": "ONLINE"
+}
+```
+
+**状态类型**:
+
+| 状态 | 说明 |
+|------|------|
+| ONLINE | 在线 |
+| OFFLINE | 离线 |
+| BUSY | 忙碌 |
+| AWAY | 离开 |
+
+---
+
+### 5.5 用户私有消息主题
+
+**订阅地址**: `/user/queue/private`
+
+**用途**: 接收私有消息（如系统通知、私信等）
+
+**示例**:
+```javascript
+stompClient.subscribe('/user/queue/private', function(message) {
+    const notification = JSON.parse(message.body);
+    console.log('收到私有消息:', notification);
+});
+```
+
+---
+
+## 6. 消息发送
+
+### 6.1 发送聊天消息
+
+**目标地址**: `/app/chat.send.{roomId}`
+
+**请求体**:
+```json
+{
+    "content": "大家好！",
+    "type": "TEXT"
+}
+```
+
+**示例**:
+```javascript
+stompClient.send('/app/chat.send.100', {}, JSON.stringify({
+    content: '大家好！',
+    type: 'TEXT'
+}));
+```
+
+**请求参数说明**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| content | String | 是 | 消息内容 |
+| type | String | 否 | 消息类型，默认 TEXT |
+
+---
+
+### 6.2 加入聊天室
+
+**目标地址**: `/app/chat.join.{roomId}`
+
+**用途**: 通知其他用户有人加入聊天室
+
+**示例**:
+```javascript
+stompClient.send('/app/chat.join.100', {}, '');
+```
+
+**服务器响应**: 向 `/topic/room.{roomId}` 发送系统消息
 
 ```json
 {
@@ -440,34 +425,24 @@ stompClient.send('/app/chat.join.' + roomId, {}, JSON.stringify({}));
     "senderId": 0,
     "senderName": "System",
     "content": "张三 joined the room",
-    "type": "SYSTEM",
-    "createdAt": "2024-01-01T12:00:00"
+    "type": "SYSTEM"
 }
 ```
 
 ---
 
-### 3.3 离开聊天室
+### 6.3 离开聊天室
 
-**目的地址**: `/app/chat.leave.{roomId}`
+**目标地址**: `/app/chat.leave.{roomId}`
 
-**权限要求**: 需要登录
+**用途**: 通知其他用户有人离开聊天室
 
-**路径参数**:
-
-| 参数名 | 类型 | 必填 | 说明 |
-|--------|------|------|------|
-| roomId | Long | 是 | 聊天室ID |
-
-**请求体**: 无
-
-**发送示例**:
-
+**示例**:
 ```javascript
-stompClient.send('/app/chat.leave.' + roomId, {}, JSON.stringify({}));
+stompClient.send('/app/chat.leave.100', {}, '');
 ```
 
-**响应**: 系统消息广播到 `/topic/room.{roomId}`
+**服务器响应**: 向 `/topic/room.{roomId}` 发送系统消息
 
 ```json
 {
@@ -475,573 +450,743 @@ stompClient.send('/app/chat.leave.' + roomId, {}, JSON.stringify({}));
     "senderId": 0,
     "senderName": "System",
     "content": "张三 left the room",
-    "type": "SYSTEM",
-    "createdAt": "2024-01-01T12:00:00"
+    "type": "SYSTEM"
 }
 ```
 
 ---
 
-### 3.4 发送输入状态
+### 6.4 发送输入状态
 
-**目的地址**: `/app/chat.typing.{roomId}`
+**目标地址**: `/app/chat.typing.{roomId}`
 
-**权限要求**: 需要登录且已加入聊天室
+**用途**: 通知其他用户正在输入
 
-**路径参数**:
-
-| 参数名 | 类型 | 必填 | 说明 |
-|--------|------|------|------|
-| roomId | Long | 是 | 聊天室ID |
-
-**请求体**: 无
-
-**发送示例**:
-
+**示例**:
 ```javascript
-stompClient.send('/app/chat.typing.' + roomId, {}, JSON.stringify({}));
+// 用户开始输入时
+stompClient.send('/app/chat.typing.100', {}, '');
 ```
 
-**响应**: 输入状态广播到 `/topic/room.{roomId}.typing`
-
-```json
-{
-    "userId": 1,
-    "username": "张三",
-    "typing": true
-}
-```
-
-**建议**: 使用防抖（debounce）控制发送频率，避免频繁发送
+**服务器响应**: 向 `/topic/room.{roomId}.typing` 发送输入状态
 
 ---
 
-### 3.5 更新用户状态
+### 6.5 更新用户状态
 
-**目的地址**: `/app/user.status`
-
-**权限要求**: 需要登录
+**目标地址**: `/app/user.status`
 
 **请求体**:
-
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| status | String | 是 | 状态: ONLINE/OFFLINE/AFK/BUSY |
-
-**请求示例**:
 ```json
 {
     "status": "BUSY"
 }
 ```
 
-**发送示例**:
-
+**示例**:
 ```javascript
 stompClient.send('/app/user.status', {}, JSON.stringify({
     status: 'BUSY'
 }));
 ```
 
-**响应**: 状态变更广播到 `/topic/user.status`
+**服务器响应**: 向 `/topic/user.status` 广播状态更新
+
+---
+
+## 7. 心跳机制
+
+### 7.1 心跳配置
+
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
+| 心跳间隔 | 30秒 | 客户端/服务器发送心跳的间隔 |
+| 心跳超时 | 90秒 | 超过此时间未收到心跳则认为断线 |
+
+### 7.2 心跳流程
+
+```
+┌─────────┐                    ┌─────────────┐
+│  Client │                    │   Server    │
+└────┬────┘                    └──────┬──────┘
+     │                                │
+     │  Heartbeat (every 30s)         │
+     │───────────────────────────────►│
+     │                                │
+     │  Heartbeat ACK                 │
+     │◄───────────────────────────────│
+     │                                │
+     │  ... (90s no heartbeat)        │
+     │                                │
+     │                                │  Mark user OFFLINE
+     │                                │  Broadcast status
+     │                                │
+```
+
+### 7.3 客户端心跳
+
+客户端可以发送心跳消息：
+
+**目标地址**: `/app/heartbeat`
+
+**示例**:
+```javascript
+// 定时发送心跳
+setInterval(function() {
+    stompClient.send('/app/heartbeat', {}, '');
+}, 30000);
+```
+
+### 7.4 自动心跳
+
+STOMP 客户端库通常支持自动心跳配置：
+
+```javascript
+const client = Stomp.client('ws://localhost:8080/ws');
+
+// 配置心跳
+client.heartbeat.outgoing = 30000;  // 客户端发送心跳间隔
+client.heartbeat.incoming = 30000;  // 期望服务器心跳间隔
+```
+
+### 7.5 心跳超时处理
+
+服务器端自动检测心跳超时：
+
+1. 每60秒检查一次所有用户的心跳时间
+2. 超过90秒未收到心跳的用户被标记为离线
+3. 向 `/topic/user.status` 广播离线状态
+
+---
+
+## 8. 事件通知
+
+### 8.1 连接事件
+
+#### 连接成功
+
+```javascript
+stompClient.connect(headers, function(frame) {
+    console.log('连接成功:', frame);
+    // 订阅主题...
+});
+```
+
+#### 连接失败
+
+```javascript
+stompClient.connect(headers, function(frame) {
+    // 成功回调
+}, function(error) {
+    console.error('连接失败:', error);
+    // 处理错误...
+});
+```
+
+### 8.2 断开事件
+
+#### 服务器端事件
+
+服务器在用户断开连接时：
+
+1. 从 Session 映射中移除用户
+2. 更新用户状态为 OFFLINE
+3. 广播用户离线状态
+
+#### 客户端处理
+
+```javascript
+stompClient.disconnect(function() {
+    console.log('已断开连接');
+});
+```
+
+### 8.3 重连机制
+
+建议客户端实现自动重连：
+
+```javascript
+function connect() {
+    const socket = new SockJS('/ws');
+    const stompClient = Stomp.over(socket);
+    
+    stompClient.connect(
+        { 'Authorization': 'Bearer ' + token },
+        function(frame) {
+            console.log('Connected');
+            // 重新订阅主题
+            subscribeToTopics();
+        },
+        function(error) {
+            console.log('Connection error:', error);
+            // 5秒后重连
+            setTimeout(connect, 5000);
+        }
+    );
+}
+```
+
+---
+
+## 9. 错误处理
+
+### 9.1 错误帧格式
 
 ```json
 {
-    "userId": 1,
-    "status": "BUSY"
-}
-```
-
----
-
-## 4. 数据模型
-
-### MessageDTO
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | Long | 消息ID |
-| roomId | Long | 聊天室ID |
-| senderId | Long | 发送者ID |
-| senderName | String | 发送者昵称 |
-| senderAvatar | String | 发送者头像URL |
-| content | String | 消息内容 |
-| type | String | 消息类型: TEXT/IMAGE/FILE/SYSTEM |
-| createdAt | DateTime | 发送时间 |
-
-### TypingEvent
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| userId | Long | 用户ID |
-| username | String | 用户昵称 |
-| typing | Boolean | 是否正在输入 |
-
-### StatusEvent
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| userId | Long | 用户ID |
-| username | String | 用户昵称 |
-| status | String | 状态: ONLINE/OFFLINE/AFK/BUSY |
-
-### NotificationDTO
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | Long | 通知ID |
-| type | String | 通知类型 |
-| title | String | 通知标题 |
-| content | String | 通知内容 |
-| read | Boolean | 是否已读 |
-| createdAt | DateTime | 创建时间 |
-
----
-
-## 5. 使用示例
-
-### 5.1 完整 JavaScript 示例
-
-```html
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Chat Room WebSocket Demo</title>
-    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
-</head>
-<body>
-    <div id="messages"></div>
-    <input type="text" id="messageInput" placeholder="Type a message...">
-    <button onclick="sendMessage()">Send</button>
-    <button onclick="connect()">Connect</button>
-    <button onclick="disconnect()">Disconnect</button>
-
-    <script>
-        let stompClient = null;
-        const roomId = 1;
-        const token = 'your-jwt-token-here';
-
-        function connect() {
-            const socket = new SockJS('http://localhost:8080/api/ws');
-            stompClient = Stomp.over(socket);
-            
-            const headers = {
-                'Authorization': 'Bearer ' + token
-            };
-
-            stompClient.connect(headers, function(frame) {
-                console.log('Connected: ' + frame);
-                
-                // 订阅聊天室消息
-                stompClient.subscribe('/topic/room.' + roomId, function(message) {
-                    showMessage(JSON.parse(message.body));
-                });
-
-                // 订阅输入状态
-                stompClient.subscribe('/topic/room.' + roomId + '.typing', function(message) {
-                    const data = JSON.parse(message.body);
-                    console.log(data.username + ' is typing...');
-                });
-
-                // 订阅用户状态
-                stompClient.subscribe('/topic/user.status', function(message) {
-                    const data = JSON.parse(message.body);
-                    console.log('User ' + data.userId + ' is ' + data.status);
-                });
-
-                // 加入聊天室
-                stompClient.send('/app/chat.join.' + roomId, {}, JSON.stringify({}));
-
-            }, function(error) {
-                console.log('Error: ' + error);
-            });
-        }
-
-        function disconnect() {
-            if (stompClient !== null) {
-                stompClient.send('/app/chat.leave.' + roomId, {}, JSON.stringify({}));
-                stompClient.disconnect();
-            }
-            console.log('Disconnected');
-        }
-
-        function sendMessage() {
-            const content = document.getElementById('messageInput').value;
-            if (content && stompClient) {
-                stompClient.send('/app/chat.send.' + roomId, {}, JSON.stringify({
-                    content: content,
-                    type: 'TEXT'
-                }));
-                document.getElementById('messageInput').value = '';
-            }
-        }
-
-        function showMessage(message) {
-            const div = document.createElement('div');
-            div.textContent = message.senderName + ': ' + message.content;
-            document.getElementById('messages').appendChild(div);
-        }
-
-        // 输入状态提示
-        document.getElementById('messageInput').addEventListener('input', function() {
-            if (stompClient) {
-                stompClient.send('/app/chat.typing.' + roomId, {}, JSON.stringify({}));
-            }
-        });
-    </script>
-</body>
-</html>
-```
-
-### 5.2 Vue 3 + TypeScript 示例
-
-```typescript
-// websocket.service.ts
-import SockJS from 'sockjs-client';
-import Stomp from 'stompjs';
-
-export interface MessageDTO {
-    id: number;
-    roomId: number;
-    senderId: number;
-    senderName: string;
-    senderAvatar: string;
-    content: string;
-    type: 'TEXT' | 'IMAGE' | 'FILE' | 'SYSTEM';
-    createdAt: string;
-}
-
-export interface TypingEvent {
-    userId: number;
-    username: string;
-    typing: boolean;
-}
-
-export interface StatusEvent {
-    userId: number;
-    status: 'ONLINE' | 'OFFLINE' | 'AFK' | 'BUSY';
-    username?: string;
-}
-
-export class WebSocketService {
-    private stompClient: Stomp.Client | null = null;
-    private connected = false;
-
-    connect(token: string): Promise<void> {
-        return new Promise((resolve, reject) => {
-            const socket = new SockJS('http://localhost:8080/api/ws');
-            this.stompClient = Stomp.over(socket);
-
-            const headers = {
-                'Authorization': `Bearer ${token}`
-            };
-
-            this.stompClient.connect(
-                headers,
-                (frame) => {
-                    this.connected = true;
-                    console.log('Connected:', frame);
-                    resolve();
-                },
-                (error) => {
-                    this.connected = false;
-                    console.error('Connection error:', error);
-                    reject(error);
-                }
-            );
-        });
-    }
-
-    disconnect(): void {
-        if (this.stompClient) {
-            this.stompClient.disconnect(() => {
-                this.connected = false;
-                console.log('Disconnected');
-            });
-        }
-    }
-
-    subscribeToRoom(roomId: number, callback: (message: MessageDTO) => void): void {
-        if (this.stompClient) {
-            this.stompClient.subscribe(`/topic/room.${roomId}`, (message) => {
-                callback(JSON.parse(message.body));
-            });
-        }
-    }
-
-    subscribeToTyping(roomId: number, callback: (event: TypingEvent) => void): void {
-        if (this.stompClient) {
-            this.stompClient.subscribe(`/topic/room.${roomId}.typing`, (message) => {
-                callback(JSON.parse(message.body));
-            });
-        }
-    }
-
-    subscribeToUserStatus(callback: (event: StatusEvent) => void): void {
-        if (this.stompClient) {
-            this.stompClient.subscribe('/topic/user.status', (message) => {
-                callback(JSON.parse(message.body));
-            });
-        }
-    }
-
-    sendMessage(roomId: number, content: string, type: string = 'TEXT'): void {
-        if (this.stompClient && this.connected) {
-            this.stompClient.send(
-                `/app/chat.send.${roomId}`,
-                {},
-                JSON.stringify({ content, type })
-            );
-        }
-    }
-
-    joinRoom(roomId: number): void {
-        if (this.stompClient && this.connected) {
-            this.stompClient.send(`/app/chat.join.${roomId}`, {}, JSON.stringify({}));
-        }
-    }
-
-    leaveRoom(roomId: number): void {
-        if (this.stompClient && this.connected) {
-            this.stompClient.send(`/app/chat.leave.${roomId}`, {}, JSON.stringify({}));
-        }
-    }
-
-    sendTypingIndicator(roomId: number): void {
-        if (this.stompClient && this.connected) {
-            this.stompClient.send(`/app/chat.typing.${roomId}`, {}, JSON.stringify({}));
-        }
-    }
-
-    updateStatus(status: 'ONLINE' | 'OFFLINE' | 'AFK' | 'BUSY'): void {
-        if (this.stompClient && this.connected) {
-            this.stompClient.send('/app/user.status', {}, JSON.stringify({ status }));
-        }
-    }
-
-    isConnected(): boolean {
-        return this.connected;
-    }
-}
-```
-
-### 5.3 React Hook 示例
-
-```typescript
-// useWebSocket.ts
-import { useEffect, useRef, useState, useCallback } from 'react';
-import SockJS from 'sockjs-client';
-import Stomp from 'stompjs';
-
-interface UseWebSocketOptions {
-    token: string;
-    roomId: number;
-    onMessage?: (message: any) => void;
-    onUserStatus?: (status: any) => void;
-    onTyping?: (typing: any) => void;
-}
-
-export function useWebSocket({
-    token,
-    roomId,
-    onMessage,
-    onUserStatus,
-    onTyping
-}: UseWebSocketOptions) {
-    const stompClient = useRef<Stomp.Client | null>(null);
-    const [connected, setConnected] = useState(false);
-
-    const connect = useCallback(() => {
-        const socket = new SockJS('http://localhost:8080/api/ws');
-        stompClient.current = Stomp.over(socket);
-
-        stompClient.current.connect(
-            { 'Authorization': `Bearer ${token}` },
-            () => {
-                setConnected(true);
-
-                stompClient.current?.subscribe(`/topic/room.${roomId}`, (message) => {
-                    onMessage?.(JSON.parse(message.body));
-                });
-
-                stompClient.current?.subscribe(`/topic/room.${roomId}.typing`, (message) => {
-                    onTyping?.(JSON.parse(message.body));
-                });
-
-                stompClient.current?.subscribe('/topic/user.status', (message) => {
-                    onUserStatus?.(JSON.parse(message.body));
-                });
-
-                stompClient.current?.send(`/app/chat.join.${roomId}`, {}, JSON.stringify({}));
-            },
-            (error) => {
-                console.error('WebSocket error:', error);
-                setConnected(false);
-            }
-        );
-    }, [token, roomId, onMessage, onUserStatus, onTyping]);
-
-    const disconnect = useCallback(() => {
-        if (stompClient.current) {
-            stompClient.current.send(`/app/chat.leave.${roomId}`, {}, JSON.stringify({}));
-            stompClient.current.disconnect(() => {
-                setConnected(false);
-            });
-        }
-    }, [roomId]);
-
-    const sendMessage = useCallback((content: string) => {
-        if (stompClient.current && connected) {
-            stompClient.current.send(
-                `/app/chat.send.${roomId}`,
-                {},
-                JSON.stringify({ content, type: 'TEXT' })
-            );
-        }
-    }, [roomId, connected]);
-
-    const sendTyping = useCallback(() => {
-        if (stompClient.current && connected) {
-            stompClient.current.send(`/app/chat.typing.${roomId}`, {}, JSON.stringify({}));
-        }
-    }, [roomId, connected]);
-
-    useEffect(() => {
-        connect();
-        return () => disconnect();
-    }, [connect, disconnect]);
-
-    return {
-        connected,
-        sendMessage,
-        sendTyping,
-        disconnect
-    };
-}
-```
-
----
-
-## 6. 错误处理
-
-### 6.1 常见错误
-
-| 错误类型 | 说明 | 解决方案 |
-|----------|------|----------|
-| Unauthorized | Token 无效或过期 | 重新登录获取新 Token |
-| Forbidden | 权限不足 | 确认用户已加入聊天室 |
-| Bad Request | 请求格式错误 | 检查 JSON 格式是否正确 |
-| Message Too Large | 消息超过大小限制 | 减小消息内容大小 |
-| Rate Limited | 发送频率过高 | 降低消息发送频率 |
-
-### 6.2 错误处理示例
-
-```javascript
-stompClient.connect(headers, 
-    function(frame) {
-        console.log('Connected');
+    "command": "ERROR",
+    "headers": {
+        "message": "错误类型",
+        "content-type": "application/json"
     },
-    function(error) {
-        console.error('Connection failed:', error);
-        
-        if (error.headers && error.headers.message) {
-            if (error.headers.message.includes('Unauthorized')) {
-                window.location.href = '/login';
-            }
-        }
-    }
-);
-```
-
-### 6.3 自动重连
-
-```javascript
-function connectWithRetry(maxRetries = 5, retryDelay = 3000) {
-    let retries = 0;
-
-    function connect() {
-        const socket = new SockJS('http://localhost:8080/api/ws');
-        const client = Stomp.over(socket);
-
-        client.connect(
-            { 'Authorization': 'Bearer ' + token },
-            function(frame) {
-                retries = 0;
-                console.log('Connected');
-                stompClient = client;
-            },
-            function(error) {
-                console.error('Connection error:', error);
-                
-                if (retries < maxRetries) {
-                    retries++;
-                    console.log(`Retrying... (${retries}/${maxRetries})`);
-                    setTimeout(connect, retryDelay);
-                } else {
-                    console.error('Max retries reached');
-                }
-            }
-        );
-    }
-
-    connect();
+    "body": "错误详情"
 }
 ```
 
----
+### 9.2 常见错误
 
-## 7. 配置参数
+#### 认证失败
 
-### application.yaml 配置
-
-```yaml
-app:
-  web-socket:
-    endpoint: /ws                    # WebSocket 端点路径
-    heartbeat-interval: 30000        # 心跳间隔(毫秒)
-    heartbeat-timeout: 90000         # 心跳超时(毫秒)
-    message-size-limit: 131072       # 消息大小限制(字节), 128KB
-    send-buffer-size-limit: 524288   # 发送缓冲区大小(字节), 512KB
-    send-time-limit: 20000           # 发送超时(毫秒)
-    time-to-first-message: 30000     # 首条消息超时(毫秒)
-    allowed-origins:                 # 允许的跨域来源
-      - "*"
+```json
+{
+    "command": "ERROR",
+    "headers": {
+        "message": "Unauthorized"
+    },
+    "body": "Invalid or expired token"
+}
 ```
 
-### 参数说明
+**处理方式**: 重新登录获取新 Token
 
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| `endpoint` | `/ws` | WebSocket 连接端点 |
-| `heartbeat-interval` | 30000 | 心跳发送间隔，单位毫秒 |
-| `heartbeat-timeout` | 90000 | 心跳超时时间，超过此时间未收到心跳则判定离线 |
-| `message-size-limit` | 131072 | 单条消息最大大小，单位字节 |
-| `send-buffer-size-limit` | 524288 | 发送缓冲区最大大小 |
-| `send-time-limit` | 20000 | 消息发送超时时间 |
-| `time-to-first-message` | 30000 | 连接后等待首条消息的超时时间 |
-| `allowed-origins` | `*` | 允许的跨域来源列表 |
+#### 权限不足
+
+```json
+{
+    "command": "ERROR",
+    "headers": {
+        "message": "Forbidden"
+    },
+    "body": "You are not a member of this room"
+}
+```
+
+**处理方式**: 提示用户加入聊天室
+
+#### 消息发送失败
+
+```json
+{
+    "command": "ERROR",
+    "headers": {
+        "message": "Bad Request"
+    },
+    "body": "Message content cannot be empty"
+}
+```
+
+**处理方式**: 检查消息内容
+
+### 9.3 错误处理最佳实践
+
+```javascript
+stompClient.subscribe('/user/queue/errors', function(message) {
+    const error = JSON.parse(message.body);
+    console.error('WebSocket Error:', error);
+    
+    // 显示错误提示
+    showNotification(error.message, 'error');
+});
+
+// 全局错误处理
+stompClient.onreceive = function(frame) {
+    if (frame.command === 'ERROR') {
+        handleStompError(frame);
+    }
+};
+```
 
 ---
 
-## 附录: 接口汇总
+## 10. 客户端示例
 
-### 发送接口
+### 10.1 JavaScript (原生)
 
-| 目的地址 | 操作 | 说明 |
-|----------|------|------|
-| `/app/chat.send.{roomId}` | SEND | 发送聊天消息 |
-| `/app/chat.join.{roomId}` | SEND | 加入聊天室 |
-| `/app/chat.leave.{roomId}` | SEND | 离开聊天室 |
-| `/app/chat.typing.{roomId}` | SEND | 发送输入状态 |
-| `/app/user.status` | SEND | 更新用户状态 |
-| `/app/heartbeat` | SEND | 手动心跳 |
+```javascript
+class ChatClient {
+    constructor(token) {
+        this.token = token;
+        this.stompClient = null;
+        this.subscriptions = {};
+    }
+    
+    connect() {
+        const socket = new SockJS('http://localhost:8080/ws');
+        this.stompClient = Stomp.over(socket);
+        
+        const headers = {
+            'Authorization': 'Bearer ' + this.token
+        };
+        
+        this.stompClient.connect(
+            headers,
+            this.onConnect.bind(this),
+            this.onError.bind(this)
+        );
+    }
+    
+    onConnect(frame) {
+        console.log('Connected:', frame);
+        this.subscribeToTopics();
+    }
+    
+    onError(error) {
+        console.error('Connection error:', error);
+        setTimeout(() => this.connect(), 5000);
+    }
+    
+    subscribeToTopics() {
+        // 订阅用户状态
+        this.subscriptions['userStatus'] = this.stompClient.subscribe(
+            '/topic/user.status',
+            this.onUserStatus.bind(this)
+        );
+    }
+    
+    joinRoom(roomId) {
+        // 订阅聊天室消息
+        this.subscriptions['room_' + roomId] = this.stompClient.subscribe(
+            '/topic/room.' + roomId,
+            this.onMessage.bind(this)
+        );
+        
+        // 订阅输入状态
+        this.subscriptions['typing_' + roomId] = this.stompClient.subscribe(
+            '/topic/room.' + roomId + '.typing',
+            this.onTyping.bind(this)
+        );
+        
+        // 发送加入消息
+        this.stompClient.send('/app/chat.join.' + roomId, {}, '');
+    }
+    
+    leaveRoom(roomId) {
+        // 取消订阅
+        if (this.subscriptions['room_' + roomId]) {
+            this.subscriptions['room_' + roomId].unsubscribe();
+        }
+        if (this.subscriptions['typing_' + roomId]) {
+            this.subscriptions['typing_' + roomId].unsubscribe();
+        }
+        
+        // 发送离开消息
+        this.stompClient.send('/app/chat.leave.' + roomId, {}, '');
+    }
+    
+    sendMessage(roomId, content, type = 'TEXT') {
+        this.stompClient.send(
+            '/app/chat.send.' + roomId,
+            {},
+            JSON.stringify({ content, type })
+        );
+    }
+    
+    sendTyping(roomId) {
+        this.stompClient.send('/app/chat.typing.' + roomId, {}, '');
+    }
+    
+    updateStatus(status) {
+        this.stompClient.send(
+            '/app/user.status',
+            {},
+            JSON.stringify({ status })
+        );
+    }
+    
+    onMessage(message) {
+        const msg = JSON.parse(message.body);
+        console.log('Message:', msg);
+        // 更新UI...
+    }
+    
+    onTyping(message) {
+        const data = JSON.parse(message.body);
+        console.log('Typing:', data);
+        // 显示输入提示...
+    }
+    
+    onUserStatus(message) {
+        const data = JSON.parse(message.body);
+        console.log('User status:', data);
+        // 更新用户列表...
+    }
+    
+    disconnect() {
+        if (this.stompClient) {
+            this.stompClient.disconnect();
+        }
+    }
+}
 
-### 订阅接口
+// 使用示例
+const chatClient = new ChatClient(localStorage.getItem('token'));
+chatClient.connect();
+```
 
-| 订阅地址 | 说明 | 消息类型 |
-|----------|------|----------|
-| `/topic/room.{roomId}` | 聊天室消息 | MessageDTO |
-| `/topic/room.{roomId}.typing` | 输入状态提示 | TypingEvent |
-| `/topic/user.status` | 用户状态变更 | StatusEvent |
-| `/user/queue/notifications` | 个人通知 | NotificationDTO |
+---
+
+### 10.2 Vue.js 集成
+
+```vue
+<template>
+  <div class="chat-room">
+    <div class="messages">
+      <div v-for="msg in messages" :key="msg.id" class="message">
+        <span class="sender">{{ msg.senderName }}:</span>
+        <span class="content">{{ msg.content }}</span>
+      </div>
+    </div>
+    <div class="typing-indicator" v-if="typingUser">
+      {{ typingUser }} 正在输入...
+    </div>
+    <div class="input-area">
+      <input 
+        v-model="newMessage" 
+        @input="onTyping"
+        @keyup.enter="sendMessage"
+        placeholder="输入消息..."
+      />
+      <button @click="sendMessage">发送</button>
+    </div>
+  </div>
+</template>
+
+<script>
+import SockJS from 'sockjs-client';
+import Stomp from 'stompjs';
+
+export default {
+  name: 'ChatRoom',
+  props: {
+    roomId: {
+      type: Number,
+      required: true
+    }
+  },
+  data() {
+    return {
+      stompClient: null,
+      messages: [],
+      newMessage: '',
+      typingUser: null,
+      typingTimeout: null
+    };
+  },
+  mounted() {
+    this.connect();
+  },
+  beforeUnmount() {
+    this.disconnect();
+  },
+  methods: {
+    connect() {
+      const socket = new SockJS('http://localhost:8080/ws');
+      this.stompClient = Stomp.over(socket);
+      
+      const headers = {
+        'Authorization': 'Bearer ' + this.$store.state.token
+      };
+      
+      this.stompClient.connect(
+        headers,
+        this.onConnect,
+        this.onError
+      );
+    },
+    
+    onConnect() {
+      // 订阅聊天室消息
+      this.stompClient.subscribe(
+        `/topic/room.${this.roomId}`,
+        this.onMessage
+      );
+      
+      // 订阅输入状态
+      this.stompClient.subscribe(
+        `/topic/room.${this.roomId}.typing`,
+        this.onTyping
+      );
+      
+      // 加入聊天室
+      this.stompClient.send(`/app/chat.join.${this.roomId}`, {}, '');
+    },
+    
+    onError(error) {
+      console.error('WebSocket error:', error);
+      setTimeout(() => this.connect(), 5000);
+    },
+    
+    disconnect() {
+      if (this.stompClient) {
+        this.stompClient.send(`/app/chat.leave.${this.roomId}`, {}, '');
+        this.stompClient.disconnect();
+      }
+    },
+    
+    sendMessage() {
+      if (!this.newMessage.trim()) return;
+      
+      this.stompClient.send(
+        `/app/chat.send.${this.roomId}`,
+        {},
+        JSON.stringify({
+          content: this.newMessage,
+          type: 'TEXT'
+        })
+      );
+      
+      this.newMessage = '';
+    },
+    
+    onTyping(message) {
+      const data = JSON.parse(message.body);
+      this.typingUser = data.username;
+      
+      clearTimeout(this.typingTimeout);
+      this.typingTimeout = setTimeout(() => {
+        this.typingUser = null;
+      }, 3000);
+    },
+    
+    onMessage(message) {
+      const msg = JSON.parse(message.body);
+      this.messages.push(msg);
+      this.$nextTick(() => {
+        this.scrollToBottom();
+      });
+    },
+    
+    scrollToBottom() {
+      const container = this.$el.querySelector('.messages');
+      container.scrollTop = container.scrollHeight;
+    }
+  }
+};
+</script>
+```
+
+---
+
+### 10.3 React 集成
+
+```jsx
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import SockJS from 'sockjs-client';
+import Stomp from 'stompjs';
+
+function useWebSocket(token, roomId) {
+  const [messages, setMessages] = useState([]);
+  const [typingUser, setTypingUser] = useState(null);
+  const [connected, setConnected] = useState(false);
+  const clientRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
+  
+  const connect = useCallback(() => {
+    const socket = new SockJS('http://localhost:8080/ws');
+    const stompClient = Stomp.over(socket);
+    
+    stompClient.connect(
+      { 'Authorization': `Bearer ${token}` },
+      () => {
+        setConnected(true);
+        clientRef.current = stompClient;
+        
+        // 订阅消息
+        stompClient.subscribe(`/topic/room.${roomId}`, (message) => {
+          const msg = JSON.parse(message.body);
+          setMessages(prev => [...prev, msg]);
+        });
+        
+        // 订阅输入状态
+        stompClient.subscribe(`/topic/room.${roomId}.typing`, (message) => {
+          const data = JSON.parse(message.body);
+          setTypingUser(data.username);
+          
+          clearTimeout(typingTimeoutRef.current);
+          typingTimeoutRef.current = setTimeout(() => {
+            setTypingUser(null);
+          }, 3000);
+        });
+        
+        // 加入聊天室
+        stompClient.send(`/app/chat.join.${roomId}`, {}, '');
+      },
+      (error) => {
+        console.error('Connection error:', error);
+        setConnected(false);
+        setTimeout(connect, 5000);
+      }
+    );
+  }, [token, roomId]);
+  
+  const sendMessage = useCallback((content) => {
+    if (clientRef.current && content.trim()) {
+      clientRef.current.send(
+        `/app/chat.send.${roomId}`,
+        {},
+        JSON.stringify({ content, type: 'TEXT' })
+      );
+    }
+  }, [roomId]);
+  
+  const sendTyping = useCallback(() => {
+    if (clientRef.current) {
+      clientRef.current.send(`/app/chat.typing.${roomId}`, {}, '');
+    }
+  }, [roomId]);
+  
+  const disconnect = useCallback(() => {
+    if (clientRef.current) {
+      clientRef.current.send(`/app/chat.leave.${roomId}`, {}, '');
+      clientRef.current.disconnect();
+    }
+  }, [roomId]);
+  
+  useEffect(() => {
+    connect();
+    return () => disconnect();
+  }, [connect, disconnect]);
+  
+  return {
+    messages,
+    typingUser,
+    connected,
+    sendMessage,
+    sendTyping,
+    disconnect
+  };
+}
+
+function ChatRoom({ token, roomId }) {
+  const [input, setInput] = useState('');
+  const { messages, typingUser, connected, sendMessage, sendTyping } = useWebSocket(token, roomId);
+  
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    sendMessage(input);
+    setInput('');
+  };
+  
+  const handleInput = (e) => {
+    setInput(e.target.value);
+    sendTyping();
+  };
+  
+  return (
+    <div className="chat-room">
+      <div className="status">
+        {connected ? '🟢 已连接' : '🔴 未连接'}
+      </div>
+      
+      <div className="messages">
+        {messages.map((msg, index) => (
+          <div key={index} className="message">
+            <strong>{msg.senderName}:</strong> {msg.content}
+          </div>
+        ))}
+      </div>
+      
+      {typingUser && (
+        <div className="typing">{typingUser} 正在输入...</div>
+      )}
+      
+      <form onSubmit={handleSubmit}>
+        <input
+          value={input}
+          onChange={handleInput}
+          placeholder="输入消息..."
+        />
+        <button type="submit">发送</button>
+      </form>
+    </div>
+  );
+}
+
+export default ChatRoom;
+```
+
+---
+
+## 11. 最佳实践
+
+### 11.1 连接管理
+
+1. **单例模式**: 整个应用只维护一个 WebSocket 连接
+2. **自动重连**: 实现断线自动重连机制
+3. **心跳保活**: 配置合理的心跳间隔
+4. **优雅断开**: 页面卸载时主动断开连接
+
+### 11.2 订阅管理
+
+1. **按需订阅**: 只订阅当前需要的主题
+2. **及时取消**: 离开页面时取消订阅
+3. **避免重复**: 检查是否已订阅再订阅
+
+### 11.3 消息处理
+
+1. **消息去重**: 使用消息ID进行去重
+2. **消息排序**: 按时间戳排序显示
+3. **消息缓存**: 本地缓存历史消息
+4. **错误处理**: 处理消息发送失败的情况
+
+### 11.4 性能优化
+
+1. **消息节流**: 输入状态使用节流发送
+2. **虚拟列表**: 大量消息使用虚拟滚动
+3. **懒加载**: 历史消息分页加载
+4. **压缩传输**: 大消息使用压缩
+
+### 11.5 安全建议
+
+1. **Token 刷新**: Token 过期前主动刷新
+2. **敏感数据**: 不在 WebSocket 中传输敏感信息
+3. **输入验证**: 客户端和服务端都要验证消息内容
+4. **限流控制**: 防止消息刷屏
+
+---
+
+## 附录
+
+### A. STOMP 命令参考
+
+| 命令 | 说明 | 方向 |
+|------|------|------|
+| CONNECT | 建立连接 | Client → Server |
+| CONNECTED | 连接成功 | Server → Client |
+| SEND | 发送消息 | Client → Server |
+| SUBSCRIBE | 订阅主题 | Client → Server |
+| UNSUBSCRIBE | 取消订阅 | Client → Server |
+| MESSAGE | 消息通知 | Server → Client |
+| ERROR | 错误 | Server → Client |
+| DISCONNECT | 断开连接 | Client → Server |
+
+### B. 常用库推荐
+
+| 平台 | 库名 | 安装命令 |
+|------|------|----------|
+| JavaScript | @stomp/stompjs | `npm install @stomp/stompjs` |
+| JavaScript | sockjs-client | `npm install sockjs-client` |
+| Android | StompClientAndroid | Gradle 依赖 |
+| iOS | StompClientLib | Pod 依赖 |
+| Java | spring-websocket | Maven 依赖 |
+
+### C. 调试工具
+
+1. **浏览器开发者工具**: Network → WS 标签
+2. **WebSocket King Client**: 图形化 WebSocket 客户端
+3. **Postman**: 支持 WebSocket 测试
+
+---
+
+*文档版本: 1.0.0*
+*最后更新: 2024年1月*

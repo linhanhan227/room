@@ -51,6 +51,9 @@
   - [5.10 踢出成员](#510-踢出成员)
   - [5.11 设置成员角色](#511-设置成员角色)
   - [5.12 更新聊天室信息](#512-更新聊天室信息)
+  - [5.13 获取推荐聊天室](#513-获取推荐聊天室)
+  - [5.14 获取可用推荐策略](#514-获取可用推荐策略)
+  - [5.15 获取默认推荐策略](#515-获取默认推荐策略)
 - [6. 消息模块 (Messages)](#6-消息模块-messages)
   - [6.1 发送消息](#61-发送消息)
   - [6.2 获取聊天室消息列表](#62-获取聊天室消息列表)
@@ -58,7 +61,7 @@
   - [6.4 搜索消息](#64-搜索消息)
   - [6.5 删除消息](#65-删除消息)
   - [6.6 获取消息数量](#66-获取消息数量)
-- [7. 管理模块 (Admin)](#7-管理模块)
+- [7. 管理模块 (Admin)](#7-管理模块-admin)
   - [7.1 获取仪表盘统计](#71-获取仪表盘统计)
   - [7.2 获取所有用户](#72-获取所有用户)
   - [7.3 搜索用户](#73-搜索用户)
@@ -106,19 +109,28 @@
   - [9.9 检查文本是否包含敏感词](#99-检查文本是否包含敏感词)
   - [9.10 过滤敏感词](#910-过滤敏感词)
   - [9.11 查找文本中的敏感词](#911-查找文本中的敏感词)
-- [10. WebSocket 接口](#10-websocket-接口)
-  - [10.1 连接端点](#101-连接端点)
-  - [10.2 订阅主题](#102-订阅主题)
+  - [9.12 查找所有匹配结果](#912-查找所有匹配结果)
+  - [9.13 获取算法信息](#913-获取算法信息)
+  - [9.14 设置默认算法](#914-设置默认算法)
+- [10. 数据模型](#10-数据模型)
+  - [10.1 用户相关](#101-用户相关)
+  - [10.2 聊天室相关](#102-聊天室相关)
+  - [10.3 消息相关](#103-消息相关)
+  - [10.4 举报相关](#104-举报相关)
+  - [10.5 公告相关](#105-公告相关)
+  - [10.6 其他模型](#106-其他模型)
 
 ---
 
 ## 基础信息
 
-- **Base URL**: `http://localhost:8080/api`
-- **协议**: HTTP/HTTPS
-- **数据格式**: JSON
-- **字符编码**: UTF-8
-- **认证方式**: JWT Bearer Token
+| 项目 | 说明 |
+|------|------|
+| Base URL | `http://localhost:8080/api` |
+| 协议 | HTTP/HTTPS |
+| 数据格式 | JSON |
+| 字符编码 | UTF-8 |
+| 认证方式 | JWT Bearer Token |
 
 ---
 
@@ -132,7 +144,14 @@
 Authorization: Bearer <token>
 ```
 
+**Token 说明**:
+- Token 有效期：默认 24 小时（86400000 毫秒）
+- Token 格式：JWT (JSON Web Token)
+- Token 前缀：`Bearer `（注意 Bearer 后有空格）
+
 ### 统一响应格式
+
+所有接口均采用统一的响应格式：
 
 ```json
 {
@@ -143,7 +162,16 @@ Authorization: Bearer <token>
 }
 ```
 
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| success | Boolean | 请求是否成功 |
+| message | String | 响应消息 |
+| data | Object | 响应数据，可能为对象、数组或 null |
+| timestamp | Long | 响应时间戳（毫秒） |
+
 ### 分页响应格式
+
+分页接口返回 Spring Data 标准分页格式：
 
 ```json
 {
@@ -156,19 +184,36 @@ Authorization: Bearer <token>
       "pageSize": 10,
       "sort": {
         "sorted": true,
-        "unsorted": false
-      }
+        "unsorted": false,
+        "empty": false
+      },
+      "offset": 0,
+      "paged": true,
+      "unpaged": false
     },
     "totalElements": 100,
     "totalPages": 10,
     "size": 10,
     "number": 0,
     "first": true,
-    "last": false
+    "last": false,
+    "numberOfElements": 10,
+    "empty": false
   },
   "timestamp": 1700000000000
 }
 ```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| content | Array | 当前页数据列表 |
+| totalElements | Long | 总记录数 |
+| totalPages | Integer | 总页数 |
+| size | Integer | 每页大小 |
+| number | Integer | 当前页码（从0开始） |
+| first | Boolean | 是否为第一页 |
+| last | Boolean | 是否为最后一页 |
+| numberOfElements | Integer | 当前页实际记录数 |
 
 ### 错误响应格式
 
@@ -199,11 +244,14 @@ Authorization: Bearer <token>
 
 ### 1.1 用户注册
 
+注册新用户账号。
+
 **接口地址**: `POST /auth/register`
 
 **权限要求**: 无
 
 **请求体**:
+
 ```json
 {
   "username": "testuser",
@@ -215,14 +263,15 @@ Authorization: Bearer <token>
 
 **请求参数说明**:
 
-| 参数名 | 类型 | 必填 | 说明 |
-|--------|------|------|------|
-| username | String | 是 | 用户名，3-50字符 |
-| password | String | 是 | 密码，6-100字符 |
-| nickname | String | 否 | 昵称，最大50字符 |
-| email | String | 否 | 邮箱，最大100字符 |
+| 参数名 | 类型 | 必填 | 说明 | 约束 |
+|--------|------|------|------|------|
+| username | String | 是 | 用户名 | 3-50字符，不能为空 |
+| password | String | 是 | 密码 | 6-100字符，不能为空 |
+| nickname | String | 否 | 昵称 | 最大50字符 |
+| email | String | 否 | 邮箱 | 最大100字符 |
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -246,15 +295,38 @@ Authorization: Bearer <token>
 }
 ```
 
+**响应字段说明**:
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| token | String | JWT Token |
+| tokenType | String | Token类型，固定为 "Bearer" |
+| expiresIn | Long | Token有效期（毫秒） |
+| user | UserDTO | 用户信息对象 |
+
+**错误响应**:
+
+| 错误信息 | 说明 |
+|----------|------|
+| Username is required | 用户名不能为空 |
+| Username must be between 3 and 50 characters | 用户名长度不符合要求 |
+| Password is required | 密码不能为空 |
+| Password must be between 6 and 100 characters | 密码长度不符合要求 |
+| Username already exists | 用户名已存在 |
+| Email already exists | 邮箱已被注册 |
+
 ---
 
 ### 1.2 用户登录
+
+用户登录获取Token。
 
 **接口地址**: `POST /auth/login`
 
 **权限要求**: 无
 
 **请求体**:
+
 ```json
 {
   "username": "testuser",
@@ -270,6 +342,7 @@ Authorization: Bearer <token>
 | password | String | 是 | 密码 |
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -293,20 +366,33 @@ Authorization: Bearer <token>
 }
 ```
 
+**错误响应**:
+
+| 错误信息 | 说明 |
+|----------|------|
+| Username is required | 用户名不能为空 |
+| Password is required | 密码不能为空 |
+| Invalid username or password | 用户名或密码错误 |
+| User is banned | 用户已被封禁 |
+
 ---
 
 ### 1.3 用户登出
+
+用户登出，清除登录状态。
 
 **接口地址**: `POST /auth/logout`
 
 **权限要求**: 需要登录
 
 **请求头**:
+
 ```
 Authorization: Bearer <token>
 ```
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -322,11 +408,14 @@ Authorization: Bearer <token>
 
 ### 2.1 发送验证码
 
+发送邮箱验证码。
+
 **接口地址**: `POST /email/verification/send`
 
 **权限要求**: 无
 
 **请求体**:
+
 ```json
 {
   "email": "user@example.com",
@@ -339,7 +428,7 @@ Authorization: Bearer <token>
 | 参数名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
 | email | String | 是 | 邮箱地址 |
-| type | String | 是 | 验证类型：REGISTER/RESET_PASSWORD/CHANGE_EMAIL |
+| type | String | 是 | 验证类型 |
 
 **验证类型说明**:
 
@@ -350,6 +439,7 @@ Authorization: Bearer <token>
 | CHANGE_EMAIL | 更改邮箱验证 |
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -360,6 +450,7 @@ Authorization: Bearer <token>
 ```
 
 **错误响应示例**:
+
 ```json
 {
   "success": false,
@@ -372,17 +463,30 @@ Authorization: Bearer <token>
 **限制说明**:
 - 每小时最多发送5次验证码
 - 两次发送间隔至少60秒
-- 验证码有效期为5分钟
+- 验证码有效期为5分钟（300秒）
+- 验证码长度为6位
+
+**错误响应**:
+
+| 错误信息 | 说明 |
+|----------|------|
+| 无效的验证类型 | type参数值不正确 |
+| 该邮箱已被注册 | REGISTER类型时邮箱已存在 |
+| 发送验证码过于频繁 | 两次发送间隔不足60秒 |
+| 今日发送次数已达上限 | 超过每日发送限制 |
 
 ---
 
 ### 2.2 验证邮箱
+
+验证邮箱验证码。
 
 **接口地址**: `POST /email/verification/verify`
 
 **权限要求**: 无
 
 **请求体**:
+
 ```json
 {
   "email": "user@example.com",
@@ -400,6 +504,7 @@ Authorization: Bearer <token>
 | type | String | 是 | 验证类型 |
 
 **响应示例（成功）**:
+
 ```json
 {
   "success": true,
@@ -410,6 +515,7 @@ Authorization: Bearer <token>
 ```
 
 **响应示例（失败）**:
+
 ```json
 {
   "success": false,
@@ -423,6 +529,8 @@ Authorization: Bearer <token>
 
 ### 2.3 检查验证状态
 
+检查邮箱是否存在有效的验证码。
+
 **接口地址**: `GET /email/verification/status`
 
 **权限要求**: 无
@@ -435,11 +543,13 @@ Authorization: Bearer <token>
 | type | String | 是 | 验证类型 |
 
 **请求示例**:
+
 ```
 GET /email/verification/status?email=user@example.com&type=REGISTER
 ```
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -457,6 +567,8 @@ GET /email/verification/status?email=user@example.com&type=REGISTER
 
 ### 2.4 获取每日邮件发送限制
 
+获取邮箱今日剩余可发送次数。
+
 **接口地址**: `GET /email/daily-limit`
 
 **权限要求**: 无
@@ -468,11 +580,13 @@ GET /email/verification/status?email=user@example.com&type=REGISTER
 | email | String | 是 | 邮箱地址 |
 
 **请求示例**:
+
 ```
 GET /email/daily-limit?email=user@example.com
 ```
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -487,17 +601,24 @@ GET /email/daily-limit?email=user@example.com
 - `data: -1` - 未启用每日限制
 - `data: 0` - 今日已达上限
 
+**配置说明**:
+- 默认每日最大发送次数：10次
+- 每日0点重置计数
+
 ---
 
 ## 3. 举报模块 (Reports)
 
 ### 3.1 提交举报
 
+提交举报信息。
+
 **接口地址**: `POST /reports`
 
 **权限要求**: 需要登录
 
 **请求体**:
+
 ```json
 {
   "type": "SPAM",
@@ -514,9 +635,9 @@ GET /email/daily-limit?email=user@example.com
 |--------|------|------|------|
 | type | String | 是 | 举报类型 |
 | targetType | String | 是 | 举报目标类型 |
-| reportedUserId | Long | 否 | 被举报用户ID（targetType=USER时必填） |
-| reportedRoomId | Long | 否 | 被举报聊天室ID（targetType=ROOM时必填） |
-| reportedMessageId | Long | 否 | 被举报消息ID（targetType=MESSAGE时必填） |
+| reportedUserId | Long | 条件必填 | 被举报用户ID（targetType=USER时必填） |
+| reportedRoomId | Long | 条件必填 | 被举报聊天室ID（targetType=ROOM时必填） |
+| reportedMessageId | Long | 条件必填 | 被举报消息ID（targetType=MESSAGE时必填） |
 | reason | String | 是 | 举报原因 |
 | description | String | 否 | 详细描述 |
 
@@ -540,6 +661,7 @@ GET /email/daily-limit?email=user@example.com
 | MESSAGE | 消息 |
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -550,23 +672,38 @@ GET /email/daily-limit?email=user@example.com
     "reporterName": "testuser",
     "reportedUserId": 123,
     "reportedUserName": "baduser",
+    "reportedRoomId": null,
+    "reportedRoomName": null,
+    "reportedMessageId": null,
     "type": "SPAM",
     "targetType": "USER",
     "reason": "发送垃圾信息",
+    "description": "该用户在聊天室中频繁发送广告信息",
     "status": "PENDING",
+    "handlerId": null,
+    "handlerName": null,
+    "handleResult": null,
+    "handledAt": null,
     "createdAt": "2024-01-20T10:00:00"
   },
   "timestamp": 1700000000000
 }
 ```
 
-**限制说明**:
-- 每个用户每日最多提交10次举报
-- 同一目标不能重复举报（待处理状态下）
+**举报状态说明**:
+
+| 状态 | 说明 |
+|------|------|
+| PENDING | 待处理 |
+| PROCESSING | 处理中 |
+| RESOLVED | 已解决 |
+| REJECTED | 已拒绝 |
 
 ---
 
 ### 3.2 获取我的举报记录
+
+获取当前用户提交的举报记录。
 
 **接口地址**: `GET /reports/my`
 
@@ -580,11 +717,13 @@ GET /email/daily-limit?email=user@example.com
 | size | Integer | 否 | 每页数量，默认10 |
 
 **请求示例**:
+
 ```
 GET /reports/my?page=0&size=10
 ```
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -597,9 +736,13 @@ GET /reports/my?page=0&size=10
         "reporterName": "testuser",
         "reportedUserId": 123,
         "reportedUserName": "baduser",
+        "reportedRoomId": null,
+        "reportedRoomName": null,
+        "reportedMessageId": null,
         "type": "SPAM",
         "targetType": "USER",
         "reason": "发送垃圾信息",
+        "description": "详细描述",
         "status": "RESOLVED",
         "handlerId": 2,
         "handlerName": "admin",
@@ -621,6 +764,8 @@ GET /reports/my?page=0&size=10
 
 ### 3.3 获取举报详情
 
+根据ID获取举报详情。
+
 **接口地址**: `GET /reports/{id}`
 
 **权限要求**: 需要登录
@@ -632,6 +777,7 @@ GET /reports/my?page=0&size=10
 | id | Long | 是 | 举报ID |
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -642,6 +788,9 @@ GET /reports/my?page=0&size=10
     "reporterName": "testuser",
     "reportedUserId": 123,
     "reportedUserName": "baduser",
+    "reportedRoomId": null,
+    "reportedRoomName": null,
+    "reportedMessageId": null,
     "type": "SPAM",
     "targetType": "USER",
     "reason": "发送垃圾信息",
@@ -661,9 +810,11 @@ GET /reports/my?page=0&size=10
 
 ### 3.4 获取所有举报列表（管理员）
 
+获取所有举报记录列表。
+
 **接口地址**: `GET /reports`
 
-**权限要求**: 管理员
+**权限要求**: 管理员 (ADMIN)
 
 **查询参数**:
 
@@ -673,11 +824,13 @@ GET /reports/my?page=0&size=10
 | size | Integer | 否 | 每页数量，默认10 |
 
 **请求示例**:
+
 ```
 GET /reports?page=0&size=10
 ```
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -697,9 +850,11 @@ GET /reports?page=0&size=10
 
 ### 3.5 按状态获取举报列表（管理员）
 
+按状态筛选举报列表。
+
 **接口地址**: `GET /reports/status/{status}`
 
-**权限要求**: 管理员
+**权限要求**: 管理员 (ADMIN)
 
 **路径参数**:
 
@@ -714,16 +869,8 @@ GET /reports?page=0&size=10
 | page | Integer | 否 | 页码，默认0 |
 | size | Integer | 否 | 每页数量，默认10 |
 
-**举报状态说明**:
-
-| 状态 | 说明 |
-|------|------|
-| PENDING | 待处理 |
-| PROCESSING | 处理中 |
-| RESOLVED | 已解决 |
-| REJECTED | 已拒绝 |
-
 **请求示例**:
+
 ```
 GET /reports/status/PENDING?page=0&size=10
 ```
@@ -732,9 +879,11 @@ GET /reports/status/PENDING?page=0&size=10
 
 ### 3.6 按类型获取举报列表（管理员）
 
+按举报类型筛选举报列表。
+
 **接口地址**: `GET /reports/type/{type}`
 
-**权限要求**: 管理员
+**权限要求**: 管理员 (ADMIN)
 
 **路径参数**:
 
@@ -750,6 +899,7 @@ GET /reports/status/PENDING?page=0&size=10
 | size | Integer | 否 | 每页数量，默认10 |
 
 **请求示例**:
+
 ```
 GET /reports/type/SPAM?page=0&size=10
 ```
@@ -758,11 +908,14 @@ GET /reports/type/SPAM?page=0&size=10
 
 ### 3.7 获取举报统计（管理员）
 
+获取举报统计数据。
+
 **接口地址**: `GET /reports/statistics`
 
-**权限要求**: 管理员
+**权限要求**: 管理员 (ADMIN)
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -783,9 +936,11 @@ GET /reports/type/SPAM?page=0&size=10
 
 ### 3.8 处理举报（管理员）
 
+处理举报，更新状态和处理结果。
+
 **接口地址**: `PUT /reports/{id}/handle`
 
-**权限要求**: 管理员
+**权限要求**: 管理员 (ADMIN)
 
 **路径参数**:
 
@@ -794,6 +949,7 @@ GET /reports/type/SPAM?page=0&size=10
 | id | Long | 是 | 举报ID |
 
 **请求体**:
+
 ```json
 {
   "status": "RESOLVED",
@@ -809,6 +965,7 @@ GET /reports/type/SPAM?page=0&size=10
 | handleResult | String | 是 | 处理结果说明 |
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -829,9 +986,11 @@ GET /reports/type/SPAM?page=0&size=10
 
 ### 3.9 删除举报（管理员）
 
+删除举报记录。
+
 **接口地址**: `DELETE /reports/{id}`
 
-**权限要求**: 管理员
+**权限要求**: 管理员 (ADMIN)
 
 **路径参数**:
 
@@ -840,6 +999,7 @@ GET /reports/type/SPAM?page=0&size=10
 | id | Long | 是 | 举报ID |
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -855,11 +1015,66 @@ GET /reports/type/SPAM?page=0&size=10
 
 ### 4.1 获取当前用户信息
 
+获取当前登录用户的详细信息。
+
 **接口地址**: `GET /users/me`
 
 **权限要求**: 需要登录
 
 **响应示例**:
+
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": {
+    "id": 1,
+    "username": "testuser",
+    "nickname": "测试用户",
+    "email": "test@example.com",
+    "avatar": "https://example.com/avatar.png",
+    "status": "ONLINE",
+    "role": "USER",
+    "createdAt": "2024-01-01T10:00:00"
+  },
+  "timestamp": 1700000000000
+}
+```
+
+**用户状态说明**:
+
+| 状态 | 说明 |
+|------|------|
+| ONLINE | 在线 |
+| OFFLINE | 离线 |
+| BUSY | 忙碌 |
+| AWAY | 离开 |
+
+**用户角色说明**:
+
+| 角色 | 说明 |
+|------|------|
+| USER | 普通用户 |
+| ADMIN | 管理员 |
+
+---
+
+### 4.2 根据ID获取用户信息
+
+根据用户ID获取用户公开信息。
+
+**接口地址**: `GET /users/{id}`
+
+**权限要求**: 需要登录
+
+**路径参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| id | Long | 是 | 用户ID |
+
+**响应示例**:
+
 ```json
 {
   "success": true,
@@ -880,40 +1095,9 @@ GET /reports/type/SPAM?page=0&size=10
 
 ---
 
-### 4.2 根据ID获取用户信息
-
-**接口地址**: `GET /users/{id}`
-
-**权限要求**: 需要登录
-
-**路径参数**:
-
-| 参数名 | 类型 | 必填 | 说明 |
-|--------|------|------|------|
-| id | Long | 是 | 用户ID |
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "message": "Operation successful",
-  "data": {
-    "id": 1,
-    "username": "testuser",
-    "nickname": "测试用户",
-    "email": "test@example.com",
-    "avatar": null,
-    "status": "ONLINE",
-    "role": "USER",
-    "createdAt": "2024-01-01T10:00:00"
-  },
-  "timestamp": 1700000000000
-}
-```
-
----
-
 ### 4.3 根据用户名获取用户信息
+
+根据用户名获取用户信息。
 
 **接口地址**: `GET /users/username/{username}`
 
@@ -925,11 +1109,31 @@ GET /reports/type/SPAM?page=0&size=10
 |--------|------|------|------|
 | username | String | 是 | 用户名 |
 
-**响应示例**: 同上
+**响应示例**:
+
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": {
+    "id": 1,
+    "username": "testuser",
+    "nickname": "测试用户",
+    "email": "test@example.com",
+    "avatar": "https://example.com/avatar.png",
+    "status": "ONLINE",
+    "role": "USER",
+    "createdAt": "2024-01-01T10:00:00"
+  },
+  "timestamp": 1700000000000
+}
+```
 
 ---
 
-### 3.4 搜索用户
+### 4.4 搜索用户
+
+根据关键词搜索用户。
 
 **接口地址**: `GET /users/search`
 
@@ -937,13 +1141,20 @@ GET /reports/type/SPAM?page=0&size=10
 
 **查询参数**:
 
-| 参数名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| keyword | String | 是 | - | 搜索关键词 |
-| page | int | 否 | 0 | 页码（从0开始） |
-| size | int | 否 | 10 | 每页数量 |
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| keyword | String | 是 | 搜索关键词 |
+| page | Integer | 否 | 页码，默认0 |
+| size | Integer | 否 | 每页数量，默认10 |
+
+**请求示例**:
+
+```
+GET /users/search?keyword=test&page=0&size=10
+```
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -963,8 +1174,8 @@ GET /reports/type/SPAM?page=0&size=10
     ],
     "totalElements": 1,
     "totalPages": 1,
-    "size": 10,
-    "number": 0
+    "number": 0,
+    "size": 10
   },
   "timestamp": 1700000000000
 }
@@ -972,13 +1183,16 @@ GET /reports/type/SPAM?page=0&size=10
 
 ---
 
-### 3.5 获取在线用户列表
+### 4.5 获取在线用户列表
+
+获取所有在线用户列表。
 
 **接口地址**: `GET /users/online`
 
 **权限要求**: 需要登录
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -993,6 +1207,16 @@ GET /reports/type/SPAM?page=0&size=10
       "status": "ONLINE",
       "role": "USER",
       "createdAt": "2024-01-01T10:00:00"
+    },
+    {
+      "id": 2,
+      "username": "admin",
+      "nickname": "管理员",
+      "email": "admin@example.com",
+      "avatar": null,
+      "status": "ONLINE",
+      "role": "ADMIN",
+      "createdAt": "2024-01-01T09:00:00"
     }
   ],
   "timestamp": 1700000000000
@@ -1001,18 +1225,21 @@ GET /reports/type/SPAM?page=0&size=10
 
 ---
 
-### 3.6 获取在线用户数量
+### 4.6 获取在线用户数量
+
+获取当前在线用户总数。
 
 **接口地址**: `GET /users/online/count`
 
 **权限要求**: 需要登录
 
 **响应示例**:
+
 ```json
 {
   "success": true,
   "message": "Operation successful",
-  "data": 5,
+  "data": 15,
   "timestamp": 1700000000000
 }
 ```
@@ -1020,6 +1247,8 @@ GET /reports/type/SPAM?page=0&size=10
 ---
 
 ### 4.7 更新用户资料
+
+更新当前用户的个人资料。
 
 **接口地址**: `PUT /users/me`
 
@@ -1034,11 +1263,13 @@ GET /reports/type/SPAM?page=0&size=10
 | email | String | 否 | 邮箱 |
 
 **请求示例**:
+
 ```
-PUT /users/me?nickname=新昵称&avatar=https://example.com/avatar.png
+PUT /users/me?nickname=新昵称&avatar=https://example.com/new-avatar.png
 ```
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -1048,7 +1279,7 @@ PUT /users/me?nickname=新昵称&avatar=https://example.com/avatar.png
     "username": "testuser",
     "nickname": "新昵称",
     "email": "test@example.com",
-    "avatar": "https://example.com/avatar.png",
+    "avatar": "https://example.com/new-avatar.png",
     "status": "ONLINE",
     "role": "USER",
     "createdAt": "2024-01-01T10:00:00"
@@ -1059,7 +1290,9 @@ PUT /users/me?nickname=新昵称&avatar=https://example.com/avatar.png
 
 ---
 
-### 3.8 修改密码
+### 4.8 修改密码
+
+修改当前用户密码。
 
 **接口地址**: `PUT /users/me/password`
 
@@ -1073,11 +1306,13 @@ PUT /users/me?nickname=新昵称&avatar=https://example.com/avatar.png
 | newPassword | String | 是 | 新密码 |
 
 **请求示例**:
+
 ```
-PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
+PUT /users/me/password?oldPassword=old123&newPassword=new456
 ```
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -1087,9 +1322,17 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 }
 ```
 
+**错误响应**:
+
+| 错误信息 | 说明 |
+|----------|------|
+| 原密码错误 | oldPassword不正确 |
+
 ---
 
 ### 4.9 更新用户状态
+
+更新用户在线状态。
 
 **接口地址**: `PUT /users/{id}/status`
 
@@ -1105,9 +1348,16 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 | 参数名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
-| status | String | 是 | 状态：ONLINE/OFFLINE/BUZY/AWAY |
+| status | String | 是 | 用户状态：ONLINE/OFFLINE/BUSY/AWAY |
+
+**请求示例**:
+
+```
+PUT /users/1/status?status=BUSY
+```
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -1116,8 +1366,11 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
     "id": 1,
     "username": "testuser",
     "nickname": "测试用户",
-    "status": "AWAY",
-    "role": "USER"
+    "email": "test@example.com",
+    "avatar": null,
+    "status": "BUSY",
+    "role": "USER",
+    "createdAt": "2024-01-01T10:00:00"
   },
   "timestamp": 1700000000000
 }
@@ -1129,16 +1382,19 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ### 5.1 创建聊天室
 
+创建新的聊天室。
+
 **接口地址**: `POST /rooms`
 
 **权限要求**: 需要登录
 
 **请求体**:
+
 ```json
 {
   "name": "技术交流群",
   "description": "讨论技术问题的聊天室",
-  "avatar": "https://example.com/room.png",
+  "avatar": "https://example.com/room-avatar.png",
   "type": "PUBLIC",
   "password": null,
   "maxMembers": 100
@@ -1147,16 +1403,25 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 **请求参数说明**:
 
-| 参数名 | 类型 | 必填 | 说明 |
-|--------|------|------|------|
-| name | String | 是 | 聊天室名称，1-100字符 |
-| description | String | 否 | 描述，最大500字符 |
-| avatar | String | 否 | 头像URL |
-| type | String | 否 | 类型：PUBLIC/PRIVATE/GROUP，默认PUBLIC |
-| password | String | 否 | 私密房间密码 |
-| maxMembers | Integer | 否 | 最大成员数，默认100 |
+| 参数名 | 类型 | 必填 | 说明 | 约束 |
+|--------|------|------|------|------|
+| name | String | 是 | 聊天室名称 | 1-100字符 |
+| description | String | 否 | 聊天室描述 | 最大500字符 |
+| avatar | String | 否 | 聊天室头像URL | - |
+| type | String | 否 | 聊天室类型 | PUBLIC/PRIVATE/GROUP，默认PUBLIC |
+| password | String | 条件必填 | 聊天室密码 | 私密房间时可设置 |
+| maxMembers | Integer | 否 | 最大成员数 | 默认100 |
+
+**聊天室类型说明**:
+
+| 类型 | 说明 |
+|------|------|
+| PUBLIC | 公开聊天室，所有人可见可加入 |
+| PRIVATE | 私密聊天室，需要密码加入 |
+| GROUP | 群组聊天室，仅邀请可加入 |
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -1165,9 +1430,9 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
     "id": 1,
     "name": "技术交流群",
     "description": "讨论技术问题的聊天室",
-    "avatar": null,
+    "avatar": "https://example.com/room-avatar.png",
     "ownerId": 1,
-    "ownerName": "测试用户",
+    "ownerName": "testuser",
     "type": "PUBLIC",
     "maxMembers": 100,
     "status": "ACTIVE",
@@ -1178,9 +1443,19 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 }
 ```
 
+**聊天室状态说明**:
+
+| 状态 | 说明 |
+|------|------|
+| ACTIVE | 活跃 |
+| INACTIVE | 不活跃 |
+| ARCHIVED | 已归档 |
+
 ---
 
-### 3.2 加入聊天室
+### 5.2 加入聊天室
+
+加入指定聊天室。
 
 **接口地址**: `POST /rooms/{roomId}/join`
 
@@ -1196,9 +1471,16 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 | 参数名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
-| password | String | 否 | 私密房间密码 |
+| password | String | 条件必填 | 聊天室密码（私密房间需要） |
+
+**请求示例**:
+
+```
+POST /rooms/1/join?password=room123
+```
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -1206,15 +1488,34 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
   "data": {
     "id": 1,
     "name": "技术交流群",
-    "memberCount": 2
+    "description": "讨论技术问题的聊天室",
+    "avatar": null,
+    "ownerId": 1,
+    "ownerName": "testuser",
+    "type": "PUBLIC",
+    "maxMembers": 100,
+    "status": "ACTIVE",
+    "memberCount": 2,
+    "createdAt": "2024-01-01T10:00:00"
   },
   "timestamp": 1700000000000
 }
 ```
 
+**错误响应**:
+
+| 错误信息 | 说明 |
+|----------|------|
+| Room not found | 聊天室不存在 |
+| Room password is incorrect | 密码错误 |
+| Room is full | 聊天室已满 |
+| Already in room | 已经在聊天室中 |
+
 ---
 
-### 3.3 退出聊天室
+### 5.3 退出聊天室
+
+退出指定聊天室。
 
 **接口地址**: `POST /rooms/{roomId}/leave`
 
@@ -1227,6 +1528,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 | roomId | Long | 是 | 聊天室ID |
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -1238,11 +1540,13 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 3.4 删除聊天室
+### 5.4 删除聊天室
+
+删除聊天室（仅创建者可操作）。
 
 **接口地址**: `DELETE /rooms/{roomId}`
 
-**权限要求**: 聊天室所有者
+**权限要求**: 需要登录（聊天室创建者）
 
 **路径参数**:
 
@@ -1251,6 +1555,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 | roomId | Long | 是 | 聊天室ID |
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -1264,6 +1569,8 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ### 5.5 获取聊天室详情
 
+获取聊天室详细信息。
+
 **接口地址**: `GET /rooms/{roomId}`
 
 **权限要求**: 需要登录
@@ -1275,6 +1582,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 | roomId | Long | 是 | 聊天室ID |
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -1285,7 +1593,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
     "description": "讨论技术问题的聊天室",
     "avatar": null,
     "ownerId": 1,
-    "ownerName": "测试用户",
+    "ownerName": "testuser",
     "type": "PUBLIC",
     "maxMembers": 100,
     "status": "ACTIVE",
@@ -1298,7 +1606,9 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 3.6 获取公开聊天室列表
+### 5.6 获取公开聊天室列表
+
+获取所有公开聊天室列表（分页）。
 
 **接口地址**: `GET /rooms/public`
 
@@ -1306,12 +1616,19 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 **查询参数**:
 
-| 参数名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| page | int | 否 | 0 | 页码 |
-| size | int | 否 | 10 | 每页数量 |
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| page | Integer | 否 | 页码，默认0 |
+| size | Integer | 否 | 每页数量，默认10 |
+
+**请求示例**:
+
+```
+GET /rooms/public?page=0&size=10
+```
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -1321,18 +1638,21 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
       {
         "id": 1,
         "name": "技术交流群",
-        "description": "讨论技术问题",
+        "description": "讨论技术问题的聊天室",
+        "avatar": null,
         "ownerId": 1,
-        "ownerName": "测试用户",
+        "ownerName": "testuser",
         "type": "PUBLIC",
+        "maxMembers": 100,
+        "status": "ACTIVE",
         "memberCount": 50,
         "createdAt": "2024-01-01T10:00:00"
       }
     ],
-    "totalElements": 10,
-    "totalPages": 1,
-    "size": 10,
-    "number": 0
+    "totalElements": 20,
+    "totalPages": 2,
+    "number": 0,
+    "size": 10
   },
   "timestamp": 1700000000000
 }
@@ -1342,11 +1662,14 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ### 5.7 获取我的聊天室列表
 
+获取当前用户加入的所有聊天室。
+
 **接口地址**: `GET /rooms/my`
 
 **权限要求**: 需要登录
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -1355,12 +1678,28 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
     {
       "id": 1,
       "name": "技术交流群",
-      "description": "讨论技术问题",
+      "description": "讨论技术问题的聊天室",
+      "avatar": null,
       "ownerId": 1,
-      "ownerName": "测试用户",
+      "ownerName": "testuser",
       "type": "PUBLIC",
+      "maxMembers": 100,
+      "status": "ACTIVE",
       "memberCount": 50,
       "createdAt": "2024-01-01T10:00:00"
+    },
+    {
+      "id": 2,
+      "name": "闲聊群",
+      "description": "随便聊聊",
+      "avatar": null,
+      "ownerId": 2,
+      "ownerName": "otheruser",
+      "type": "PUBLIC",
+      "maxMembers": 50,
+      "status": "ACTIVE",
+      "memberCount": 30,
+      "createdAt": "2024-01-02T10:00:00"
     }
   ],
   "timestamp": 1700000000000
@@ -1371,23 +1710,62 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ### 5.8 搜索聊天室
 
+根据关键词搜索聊天室。
+
 **接口地址**: `GET /rooms/search`
 
 **权限要求**: 需要登录
 
 **查询参数**:
 
-| 参数名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| keyword | String | 是 | - | 搜索关键词 |
-| page | int | 否 | 0 | 页码 |
-| size | int | 否 | 10 | 每页数量 |
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| keyword | String | 是 | 搜索关键词 |
+| page | Integer | 否 | 页码，默认0 |
+| size | Integer | 否 | 每页数量，默认10 |
 
-**响应示例**: 同获取公开聊天室列表
+**请求示例**:
+
+```
+GET /rooms/search?keyword=技术&page=0&size=10
+```
+
+**响应示例**:
+
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": {
+    "content": [
+      {
+        "id": 1,
+        "name": "技术交流群",
+        "description": "讨论技术问题的聊天室",
+        "avatar": null,
+        "ownerId": 1,
+        "ownerName": "testuser",
+        "type": "PUBLIC",
+        "maxMembers": 100,
+        "status": "ACTIVE",
+        "memberCount": 50,
+        "createdAt": "2024-01-01T10:00:00"
+      }
+    ],
+    "totalElements": 1,
+    "totalPages": 1,
+    "number": 0,
+    "size": 10
+  },
+  "timestamp": 1700000000000
+}
+```
 
 ---
 
-### 3.9 获取聊天室成员列表
+### 5.9 获取聊天室成员列表
+
+获取聊天室的所有成员。
 
 **接口地址**: `GET /rooms/{roomId}/members`
 
@@ -1400,6 +1778,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 | roomId | Long | 是 | 聊天室ID |
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -1409,8 +1788,21 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
       "id": 1,
       "username": "testuser",
       "nickname": "测试用户",
+      "email": "test@example.com",
       "avatar": null,
-      "status": "ONLINE"
+      "status": "ONLINE",
+      "role": "USER",
+      "createdAt": "2024-01-01T10:00:00"
+    },
+    {
+      "id": 2,
+      "username": "otheruser",
+      "nickname": "其他用户",
+      "email": "other@example.com",
+      "avatar": null,
+      "status": "ONLINE",
+      "role": "USER",
+      "createdAt": "2024-01-02T10:00:00"
     }
   ],
   "timestamp": 1700000000000
@@ -1419,20 +1811,23 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 3.10 踢出成员
+### 5.10 踢出成员
+
+将成员踢出聊天室（仅创建者/管理员可操作）。
 
 **接口地址**: `DELETE /rooms/{roomId}/members/{userId}`
 
-**权限要求**: 聊天室管理员或所有者
+**权限要求**: 需要登录（聊天室创建者或管理员）
 
 **路径参数**:
 
 | 参数名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
 | roomId | Long | 是 | 聊天室ID |
-| userId | Long | 是 | 用户ID |
+| userId | Long | 是 | 要踢出的用户ID |
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -1444,11 +1839,13 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 3.11 设置成员角色
+### 5.11 设置成员角色
+
+设置聊天室成员角色（仅创建者可操作）。
 
 **接口地址**: `PUT /rooms/{roomId}/members/{userId}/role`
 
-**权限要求**: 聊天室所有者
+**权限要求**: 需要登录（聊天室创建者）
 
 **路径参数**:
 
@@ -1461,9 +1858,24 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 | 参数名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
-| role | String | 是 | 角色：OWNER/ADMIN/MEMBER |
+| role | String | 是 | 成员角色：OWNER/ADMIN/MEMBER |
+
+**成员角色说明**:
+
+| 角色 | 说明 |
+|------|------|
+| OWNER | 创建者 |
+| ADMIN | 管理员 |
+| MEMBER | 普通成员 |
+
+**请求示例**:
+
+```
+PUT /rooms/1/members/2/role?role=ADMIN
+```
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -1475,11 +1887,13 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 3.12 更新聊天室信息
+### 5.12 更新聊天室信息
+
+更新聊天室信息（仅创建者可操作）。
 
 **接口地址**: `PUT /rooms/{roomId}`
 
-**权限要求**: 聊天室所有者
+**权限要求**: 需要登录（聊天室创建者）
 
 **路径参数**:
 
@@ -1488,16 +1902,20 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 | roomId | Long | 是 | 聊天室ID |
 
 **请求体**:
+
 ```json
 {
   "name": "新名称",
   "description": "新描述",
   "avatar": "https://example.com/new-avatar.png",
+  "type": "PUBLIC",
+  "password": null,
   "maxMembers": 200
 }
 ```
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -1506,8 +1924,116 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
     "id": 1,
     "name": "新名称",
     "description": "新描述",
-    "memberCount": 50
+    "avatar": "https://example.com/new-avatar.png",
+    "ownerId": 1,
+    "ownerName": "testuser",
+    "type": "PUBLIC",
+    "maxMembers": 200,
+    "status": "ACTIVE",
+    "memberCount": 50,
+    "createdAt": "2024-01-01T10:00:00"
   },
+  "timestamp": 1700000000000
+}
+```
+
+---
+
+### 5.13 获取推荐聊天室
+
+根据推荐算法获取推荐聊天室列表。
+
+**接口地址**: `GET /rooms/recommendations`
+
+**权限要求**: 无（可选登录）
+
+**查询参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| strategy | String | 否 | 推荐策略：ACTIVITY/POPULARITY/NEWEST/RANDOM/HYBRID |
+| limit | Integer | 否 | 返回数量，默认10 |
+
+**推荐策略说明**:
+
+| 策略 | 说明 |
+|------|------|
+| ACTIVITY | 基于活跃度推荐，优先展示近期消息最多的聊天室 |
+| POPULARITY | 基于热度推荐，优先展示成员最多的聊天室 |
+| NEWEST | 基于时间推荐，优先展示最新创建的聊天室 |
+| RANDOM | 随机推荐，随机展示公开聊天室 |
+| HYBRID | 混合推荐，综合多种策略（默认） |
+
+**请求示例**:
+
+```
+GET /rooms/recommendations
+GET /rooms/recommendations?strategy=POPULARITY&limit=5
+```
+
+**响应示例**:
+
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": [
+    {
+      "id": 1,
+      "name": "技术交流群",
+      "description": "讨论技术问题的聊天室",
+      "avatar": null,
+      "ownerId": 1,
+      "ownerName": "testuser",
+      "type": "PUBLIC",
+      "maxMembers": 100,
+      "status": "ACTIVE",
+      "memberCount": 50,
+      "createdAt": "2024-01-01T10:00:00"
+    }
+  ],
+  "timestamp": 1700000000000
+}
+```
+
+---
+
+### 5.14 获取可用推荐策略
+
+获取所有可用的推荐策略列表。
+
+**接口地址**: `GET /rooms/recommendations/strategies`
+
+**权限要求**: 无
+
+**响应示例**:
+
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": ["ACTIVITY", "HYBRID", "NEWEST", "POPULARITY", "RANDOM"],
+  "timestamp": 1700000000000
+}
+```
+
+---
+
+### 5.15 获取默认推荐策略
+
+获取系统配置的默认推荐策略。
+
+**接口地址**: `GET /rooms/recommendations/default`
+
+**权限要求**: 无
+
+**响应示例**:
+
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": "HYBRID",
   "timestamp": 1700000000000
 }
 ```
@@ -1518,15 +2044,18 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ### 6.1 发送消息
 
+发送消息到指定聊天室。
+
 **接口地址**: `POST /messages`
 
-**权限要求**: 需要登录
+**权限要求**: 需要登录且已加入聊天室
 
 **请求体**:
+
 ```json
 {
   "roomId": 1,
-  "content": "大家好！",
+  "content": "Hello, World!",
   "type": "TEXT"
 }
 ```
@@ -1537,9 +2066,20 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 |--------|------|------|------|
 | roomId | Long | 是 | 聊天室ID |
 | content | String | 是 | 消息内容 |
-| type | String | 否 | 类型：TEXT/IMAGE/FILE/SYSTEM/EMOJI，默认TEXT |
+| type | String | 否 | 消息类型，默认TEXT |
+
+**消息类型说明**:
+
+| 类型 | 说明 |
+|------|------|
+| TEXT | 文本消息 |
+| IMAGE | 图片消息 |
+| FILE | 文件消息 |
+| SYSTEM | 系统消息 |
+| EMOJI | 表情消息 |
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -1550,9 +2090,9 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
     "senderId": 1,
     "senderName": "测试用户",
     "senderAvatar": null,
-    "content": "大家好！",
+    "content": "Hello, World!",
     "type": "TEXT",
-    "createdAt": "2024-01-01T10:00:00"
+    "createdAt": "2024-01-01T12:00:00"
   },
   "timestamp": 1700000000000
 }
@@ -1562,9 +2102,11 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ### 6.2 获取聊天室消息列表
 
+获取聊天室消息列表（分页）。
+
 **接口地址**: `GET /messages/room/{roomId}`
 
-**权限要求**: 需要登录
+**权限要求**: 需要登录且已加入聊天室
 
 **路径参数**:
 
@@ -1574,12 +2116,19 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 **查询参数**:
 
-| 参数名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| page | int | 否 | 0 | 页码 |
-| size | int | 否 | 20 | 每页数量 |
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| page | Integer | 否 | 页码，默认0 |
+| size | Integer | 否 | 每页数量，默认20 |
+
+**请求示例**:
+
+```
+GET /messages/room/1?page=0&size=20
+```
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -1587,20 +2136,30 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
   "data": {
     "content": [
       {
-        "id": 1,
+        "id": 100,
         "roomId": 1,
         "senderId": 1,
         "senderName": "测试用户",
         "senderAvatar": null,
-        "content": "大家好！",
+        "content": "Hello!",
         "type": "TEXT",
-        "createdAt": "2024-01-01T10:00:00"
+        "createdAt": "2024-01-01T12:00:00"
+      },
+      {
+        "id": 99,
+        "roomId": 1,
+        "senderId": 2,
+        "senderName": "其他用户",
+        "senderAvatar": null,
+        "content": "Hi!",
+        "type": "TEXT",
+        "createdAt": "2024-01-01T11:59:00"
       }
     ],
     "totalElements": 100,
     "totalPages": 5,
-    "size": 20,
-    "number": 0
+    "number": 0,
+    "size": 20
   },
   "timestamp": 1700000000000
 }
@@ -1610,9 +2169,11 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ### 6.3 获取最近消息
 
+获取聊天室最近的消息。
+
 **接口地址**: `GET /messages/room/{roomId}/recent`
 
-**权限要求**: 需要登录
+**权限要求**: 需要登录且已加入聊天室
 
 **路径参数**:
 
@@ -1622,24 +2183,32 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 **查询参数**:
 
-| 参数名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| limit | int | 否 | 50 | 消息数量限制 |
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| limit | Integer | 否 | 数量限制，默认50 |
+
+**请求示例**:
+
+```
+GET /messages/room/1/recent?limit=50
+```
 
 **响应示例**:
+
 ```json
 {
   "success": true,
   "message": "Operation successful",
   "data": [
     {
-      "id": 1,
+      "id": 100,
       "roomId": 1,
       "senderId": 1,
       "senderName": "测试用户",
-      "content": "大家好！",
+      "senderAvatar": null,
+      "content": "Hello!",
       "type": "TEXT",
-      "createdAt": "2024-01-01T10:00:00"
+      "createdAt": "2024-01-01T12:00:00"
     }
   ],
   "timestamp": 1700000000000
@@ -1648,11 +2217,13 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 4.4 搜索消息
+### 6.4 搜索消息
+
+在聊天室中搜索消息。
 
 **接口地址**: `GET /messages/room/{roomId}/search`
 
-**权限要求**: 需要登录
+**权限要求**: 需要登录且已加入聊天室
 
 **路径参数**:
 
@@ -1662,21 +2233,55 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 **查询参数**:
 
-| 参数名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| keyword | String | 是 | - | 搜索关键词 |
-| page | int | 否 | 0 | 页码 |
-| size | int | 否 | 20 | 每页数量 |
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| keyword | String | 是 | 搜索关键词 |
+| page | Integer | 否 | 页码，默认0 |
+| size | Integer | 否 | 每页数量，默认20 |
 
-**响应示例**: 同获取聊天室消息列表
+**请求示例**:
+
+```
+GET /messages/room/1/search?keyword=Hello&page=0&size=20
+```
+
+**响应示例**:
+
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": {
+    "content": [
+      {
+        "id": 100,
+        "roomId": 1,
+        "senderId": 1,
+        "senderName": "测试用户",
+        "senderAvatar": null,
+        "content": "Hello, World!",
+        "type": "TEXT",
+        "createdAt": "2024-01-01T12:00:00"
+      }
+    ],
+    "totalElements": 5,
+    "totalPages": 1,
+    "number": 0,
+    "size": 20
+  },
+  "timestamp": 1700000000000
+}
+```
 
 ---
 
 ### 6.5 删除消息
 
+删除消息（发送者或管理员可操作）。
+
 **接口地址**: `DELETE /messages/{messageId}`
 
-**权限要求**: 消息发送者
+**权限要求**: 需要登录（消息发送者或管理员）
 
 **路径参数**:
 
@@ -1685,6 +2290,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 | messageId | Long | 是 | 消息ID |
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -1696,11 +2302,13 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 4.6 获取消息数量
+### 6.6 获取消息数量
+
+获取聊天室消息总数。
 
 **接口地址**: `GET /messages/room/{roomId}/count`
 
-**权限要求**: 需要登录
+**权限要求**: 需要登录且已加入聊天室
 
 **路径参数**:
 
@@ -1709,28 +2317,32 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 | roomId | Long | 是 | 聊天室ID |
 
 **响应示例**:
+
 ```json
 {
   "success": true,
   "message": "Operation successful",
-  "data": 1500,
+  "data": 1234,
   "timestamp": 1700000000000
 }
 ```
 
 ---
 
-## 7. 管理模块
+## 7. 管理模块 (Admin)
 
-> 所有管理接口需要 ADMIN 角色
+> 所有管理模块接口均需要管理员权限 (ADMIN)
 
 ### 7.1 获取仪表盘统计
 
+获取系统统计数据。
+
 **接口地址**: `GET /admin/dashboard`
 
-**权限要求**: ADMIN
+**权限要求**: 管理员 (ADMIN)
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -1750,6 +2362,12 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
         "roomName": "技术交流群",
         "messageCount": 5000,
         "memberCount": 100
+      },
+      {
+        "roomId": 2,
+        "roomName": "闲聊群",
+        "messageCount": 3000,
+        "memberCount": 80
       }
     ]
   },
@@ -1759,46 +2377,88 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 5.2 获取所有用户
+### 7.2 获取所有用户
+
+获取所有用户列表（分页）。
 
 **接口地址**: `GET /admin/users`
 
-**权限要求**: ADMIN
+**权限要求**: 管理员 (ADMIN)
 
 **查询参数**:
 
-| 参数名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| page | int | 否 | 0 | 页码 |
-| size | int | 否 | 10 | 每页数量 |
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| page | Integer | 否 | 页码，默认0 |
+| size | Integer | 否 | 每页数量，默认10 |
 
-**响应示例**: 分页用户列表
+**请求示例**:
+
+```
+GET /admin/users?page=0&size=10
+```
+
+**响应示例**:
+
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": {
+    "content": [
+      {
+        "id": 1,
+        "username": "testuser",
+        "nickname": "测试用户",
+        "email": "test@example.com",
+        "avatar": null,
+        "status": "ONLINE",
+        "role": "USER",
+        "createdAt": "2024-01-01T10:00:00"
+      }
+    ],
+    "totalElements": 1000,
+    "totalPages": 100,
+    "number": 0,
+    "size": 10
+  },
+  "timestamp": 1700000000000
+}
+```
 
 ---
 
-### 5.3 搜索用户
+### 7.3 搜索用户
+
+搜索用户。
 
 **接口地址**: `GET /admin/users/search`
 
-**权限要求**: ADMIN
+**权限要求**: 管理员 (ADMIN)
 
 **查询参数**:
 
-| 参数名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| keyword | String | 是 | - | 搜索关键词 |
-| page | int | 否 | 0 | 页码 |
-| size | int | 否 | 10 | 每页数量 |
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| keyword | String | 是 | 搜索关键词 |
+| page | Integer | 否 | 页码，默认0 |
+| size | Integer | 否 | 每页数量，默认10 |
 
-**响应示例**: 分页用户列表
+**请求示例**:
+
+```
+GET /admin/users/search?keyword=test&page=0&size=10
+```
 
 ---
 
 ### 7.4 设置用户角色
 
+设置用户角色。
+
 **接口地址**: `PUT /admin/users/{userId}/role`
 
-**权限要求**: ADMIN
+**权限要求**: 管理员 (ADMIN)
 
 **路径参数**:
 
@@ -1810,9 +2470,16 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 | 参数名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
-| role | String | 是 | 角色：USER/ADMIN |
+| role | String | 是 | 用户角色：USER/ADMIN |
+
+**请求示例**:
+
+```
+PUT /admin/users/1/role?role=ADMIN
+```
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -1824,17 +2491,20 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 5.5 封禁用户
+### 7.5 封禁用户
+
+封禁用户。
 
 **接口地址**: `POST /admin/users/ban`
 
-**权限要求**: ADMIN
+**权限要求**: 管理员 (ADMIN)
 
 **请求体**:
+
 ```json
 {
-  "userId": 1,
-  "reason": "违规发言",
+  "userId": 123,
+  "reason": "违反社区规定",
   "type": "TEMPORARY",
   "endTime": "2024-02-01T00:00:00"
 }
@@ -1846,26 +2516,35 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 |--------|------|------|------|
 | userId | Long | 是 | 用户ID |
 | reason | String | 否 | 封禁原因 |
-| type | String | 是 | 类型：PERMANENT/TEMPORARY/WARNING |
-| endTime | DateTime | 否 | 结束时间（临时封禁必填） |
+| type | String | 是 | 封禁类型 |
+| endTime | DateTime | 条件必填 | 解封时间（TEMPORARY类型必填） |
+
+**封禁类型说明**:
+
+| 类型 | 说明 |
+|------|------|
+| PERMANENT | 永久封禁 |
+| TEMPORARY | 临时封禁 |
+| WARNING | 警告 |
 
 **响应示例**:
+
 ```json
 {
   "success": true,
   "message": "User banned successfully",
   "data": {
     "id": 1,
-    "userId": 1,
-    "username": "testuser",
-    "userNickname": "测试用户",
-    "bannedById": 2,
-    "bannedByName": "管理员",
-    "reason": "违规发言",
+    "userId": 123,
+    "username": "baduser",
+    "userNickname": "坏用户",
+    "bannedById": 1,
+    "bannedByName": "admin",
+    "reason": "违反社区规定",
     "type": "TEMPORARY",
     "endTime": "2024-02-01T00:00:00",
     "active": true,
-    "createdAt": "2024-01-01T10:00:00"
+    "createdAt": "2024-01-20T10:00:00"
   },
   "timestamp": 1700000000000
 }
@@ -1875,9 +2554,11 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ### 7.6 解封用户
 
+解除用户封禁。
+
 **接口地址**: `DELETE /admin/users/{userId}/ban`
 
-**权限要求**: ADMIN
+**权限要求**: 管理员 (ADMIN)
 
 **路径参数**:
 
@@ -1886,6 +2567,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 | userId | Long | 是 | 用户ID |
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -1897,28 +2579,67 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 5.7 获取封禁用户列表
+### 7.7 获取封禁用户列表
+
+获取所有被封禁的用户列表。
 
 **接口地址**: `GET /admin/users/banned`
 
-**权限要求**: ADMIN
+**权限要求**: 管理员 (ADMIN)
 
 **查询参数**:
 
-| 参数名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| page | int | 否 | 0 | 页码 |
-| size | int | 否 | 10 | 每页数量 |
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| page | Integer | 否 | 页码，默认0 |
+| size | Integer | 否 | 每页数量，默认10 |
 
-**响应示例**: 分页封禁用户列表
+**请求示例**:
+
+```
+GET /admin/users/banned?page=0&size=10
+```
+
+**响应示例**:
+
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": {
+    "content": [
+      {
+        "id": 1,
+        "userId": 123,
+        "username": "baduser",
+        "userNickname": "坏用户",
+        "bannedById": 1,
+        "bannedByName": "admin",
+        "reason": "违反社区规定",
+        "type": "TEMPORARY",
+        "endTime": "2024-02-01T00:00:00",
+        "active": true,
+        "createdAt": "2024-01-20T10:00:00"
+      }
+    ],
+    "totalElements": 10,
+    "totalPages": 1,
+    "number": 0,
+    "size": 10
+  },
+  "timestamp": 1700000000000
+}
+```
 
 ---
 
-### 5.8 获取用户封禁状态
+### 7.8 获取用户封禁状态
+
+获取指定用户的封禁状态。
 
 **接口地址**: `GET /admin/users/{userId}/ban`
 
-**权限要求**: ADMIN
+**权限要求**: 管理员 (ADMIN)
 
 **路径参数**:
 
@@ -1926,32 +2647,72 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 |--------|------|------|------|
 | userId | Long | 是 | 用户ID |
 
-**响应示例**: 封禁信息详情
+**响应示例**:
+
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": {
+    "id": 1,
+    "userId": 123,
+    "username": "baduser",
+    "userNickname": "坏用户",
+    "bannedById": 1,
+    "bannedByName": "admin",
+    "reason": "违反社区规定",
+    "type": "TEMPORARY",
+    "endTime": "2024-02-01T00:00:00",
+    "active": true,
+    "createdAt": "2024-01-20T10:00:00"
+  },
+  "timestamp": 1700000000000
+}
+```
 
 ---
 
 ### 7.9 获取所有聊天室
 
+获取所有聊天室列表。
+
 **接口地址**: `GET /admin/rooms`
 
-**权限要求**: ADMIN
+**权限要求**: 管理员 (ADMIN)
 
 **查询参数**:
 
-| 参数名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| page | int | 否 | 0 | 页码 |
-| size | int | 否 | 10 | 每页数量 |
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| page | Integer | 否 | 页码，默认0 |
+| size | Integer | 否 | 每页数量，默认10 |
 
-**响应示例**: 分页聊天室列表
+**响应示例**:
+
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": {
+    "content": [],
+    "totalElements": 100,
+    "totalPages": 10,
+    "number": 0,
+    "size": 10
+  },
+  "timestamp": 1700000000000
+}
+```
 
 ---
 
-### 5.10 删除聊天室
+### 7.10 删除聊天室
+
+删除指定聊天室。
 
 **接口地址**: `DELETE /admin/rooms/{roomId}`
 
-**权限要求**: ADMIN
+**权限要求**: 管理员 (ADMIN)
 
 **路径参数**:
 
@@ -1960,6 +2721,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 | roomId | Long | 是 | 聊天室ID |
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -1971,11 +2733,13 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 5.11 归档聊天室
+### 7.11 归档聊天室
+
+归档指定聊天室。
 
 **接口地址**: `PUT /admin/rooms/{roomId}/archive`
 
-**权限要求**: ADMIN
+**权限要求**: 管理员 (ADMIN)
 
 **路径参数**:
 
@@ -1984,6 +2748,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 | roomId | Long | 是 | 聊天室ID |
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -1995,11 +2760,13 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 5.12 删除消息
+### 7.12 删除消息
+
+删除指定消息。
 
 **接口地址**: `DELETE /admin/messages/{messageId}`
 
-**权限要求**: ADMIN
+**权限要求**: 管理员 (ADMIN)
 
 **路径参数**:
 
@@ -2008,6 +2775,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 | messageId | Long | 是 | 消息ID |
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -2019,20 +2787,23 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 5.13 获取系统日志
+### 7.13 获取系统日志
+
+获取系统日志列表。
 
 **接口地址**: `GET /admin/logs`
 
-**权限要求**: ADMIN
+**权限要求**: 管理员 (ADMIN)
 
 **查询参数**:
 
-| 参数名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| page | int | 否 | 0 | 页码 |
-| size | int | 否 | 20 | 每页数量 |
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| page | Integer | 否 | 页码，默认0 |
+| size | Integer | 否 | 每页数量，默认20 |
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -2041,20 +2812,22 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
     "content": [
       {
         "id": 1,
-        "action": "BAN_USER",
+        "action": "USER_LOGIN",
         "entityType": "User",
         "entityId": 1,
-        "operatorId": 2,
-        "operatorName": "管理员",
-        "targetUserId": 1,
-        "details": "Banned user: testuser, reason: 违规发言",
-        "ipAddress": null,
+        "operatorId": 1,
+        "operatorName": "admin",
+        "targetUserId": null,
+        "details": "用户登录成功",
+        "ipAddress": "192.168.1.1",
         "level": "INFO",
-        "createdAt": "2024-01-01T10:00:00"
+        "createdAt": "2024-01-20T10:00:00"
       }
     ],
-    "totalElements": 100,
-    "totalPages": 5
+    "totalElements": 1000,
+    "totalPages": 50,
+    "number": 0,
+    "size": 20
   },
   "timestamp": 1700000000000
 }
@@ -2062,66 +2835,93 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 5.14 获取日志操作类型列表
+### 7.14 获取日志操作类型列表
+
+获取所有日志操作类型。
 
 **接口地址**: `GET /admin/logs/actions`
 
-**权限要求**: ADMIN
+**权限要求**: 管理员 (ADMIN)
 
 **响应示例**:
+
 ```json
 {
   "success": true,
   "message": "Operation successful",
-  "data": ["BAN_USER", "UNBAN_USER", "DELETE_ROOM", "DELETE_MESSAGE", "CHANGE_ROLE"],
+  "data": [
+    "USER_LOGIN",
+    "USER_LOGOUT",
+    "USER_REGISTER",
+    "ROOM_CREATE",
+    "ROOM_DELETE",
+    "MESSAGE_SEND",
+    "MESSAGE_DELETE",
+    "USER_BAN",
+    "USER_UNBAN"
+  ],
   "timestamp": 1700000000000
 }
 ```
 
 ---
 
-### 5.15 按操作类型查询日志
+### 7.15 按操作类型查询日志
+
+按操作类型筛选系统日志。
 
 **接口地址**: `GET /admin/logs/by-action`
 
-**权限要求**: ADMIN
-
-**查询参数**:
-
-| 参数名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| action | String | 是 | - | 操作类型 |
-| page | int | 否 | 0 | 页码 |
-| size | int | 否 | 20 | 每页数量 |
-
-**响应示例**: 分页日志列表
-
----
-
-### 5.16 按日期范围查询日志
-
-**接口地址**: `GET /admin/logs/by-date`
-
-**权限要求**: ADMIN
+**权限要求**: 管理员 (ADMIN)
 
 **查询参数**:
 
 | 参数名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
-| start | Date | 是 | 开始日期 (ISO格式: 2024-01-01) |
-| end | Date | 是 | 结束日期 (ISO格式: 2024-01-31) |
-| page | int | 否 | 页码 |
-| size | int | 否 | 每页数量 |
+| action | String | 是 | 操作类型 |
+| page | Integer | 否 | 页码，默认0 |
+| size | Integer | 否 | 每页数量，默认20 |
 
-**响应示例**: 分页日志列表
+**请求示例**:
+
+```
+GET /admin/logs/by-action?action=USER_LOGIN&page=0&size=20
+```
 
 ---
 
-### 5.17 按用户查询日志
+### 7.16 按日期范围查询日志
+
+按日期范围筛选系统日志。
+
+**接口地址**: `GET /admin/logs/by-date`
+
+**权限要求**: 管理员 (ADMIN)
+
+**查询参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| start | Date | 是 | 开始日期 (ISO格式: YYYY-MM-DD) |
+| end | Date | 是 | 结束日期 (ISO格式: YYYY-MM-DD) |
+| page | Integer | 否 | 页码，默认0 |
+| size | Integer | 否 | 每页数量，默认20 |
+
+**请求示例**:
+
+```
+GET /admin/logs/by-date?start=2024-01-01&end=2024-01-31&page=0&size=20
+```
+
+---
+
+### 7.17 按用户查询日志
+
+按用户筛选系统日志。
 
 **接口地址**: `GET /admin/logs/by-user/{userId}`
 
-**权限要求**: ADMIN
+**权限要求**: 管理员 (ADMIN)
 
 **路径参数**:
 
@@ -2131,12 +2931,16 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 **查询参数**:
 
-| 参数名 | 类型 | 必填 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| page | int | 否 | 0 | 页码 |
-| size | int | 否 | 20 | 每页数量 |
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| page | Integer | 否 | 页码，默认0 |
+| size | Integer | 否 | 每页数量，默认20 |
 
-**响应示例**: 分页日志列表
+**请求示例**:
+
+```
+GET /admin/logs/by-user/1?page=0&size=20
+```
 
 ---
 
@@ -2144,20 +2948,22 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ### 8.1 创建公告
 
+创建新公告。
+
 **接口地址**: `POST /announcements`
 
-**权限要求**: 管理员
+**权限要求**: 管理员 (ADMIN)
 
 **请求体**:
+
 ```json
 {
   "title": "系统维护通知",
   "content": "系统将于今晚22:00-23:00进行维护",
   "type": "MAINTENANCE",
   "priority": "HIGH",
-  "isPinned": true,
-  "isPublished": true,
-  "expireAt": "2024-02-01T00:00:00"
+  "publishAt": "2024-01-20T10:00:00",
+  "expireAt": "2024-01-21T10:00:00"
 }
 ```
 
@@ -2165,14 +2971,12 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 | 参数名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
-| title | String | 是 | 公告标题（最大200字符） |
+| title | String | 是 | 公告标题 |
 | content | String | 是 | 公告内容 |
 | type | String | 否 | 公告类型 |
 | priority | String | 否 | 优先级 |
-| isPinned | Boolean | 否 | 是否置顶，默认false |
-| isPublished | Boolean | 否 | 是否发布，默认false |
-| publishAt | String | 否 | 发布时间（ISO格式） |
-| expireAt | String | 否 | 过期时间（ISO格式） |
+| publishAt | DateTime | 否 | 发布时间 |
+| expireAt | DateTime | 否 | 过期时间 |
 
 **公告类型说明**:
 
@@ -2187,13 +2991,14 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 **优先级说明**:
 
 | 优先级 | 说明 |
-|------|------|
+|--------|------|
 | LOW | 低 |
 | NORMAL | 普通 |
 | HIGH | 高 |
 | URGENT | 紧急 |
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -2206,12 +3011,15 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
     "priority": "HIGH",
     "authorId": 1,
     "authorName": "admin",
-    "isPinned": true,
-    "isPublished": true,
+    "isPinned": false,
+    "isPublished": false,
+    "publishAt": "2024-01-20T10:00:00",
+    "expireAt": "2024-01-21T10:00:00",
     "viewCount": 0,
     "readCount": 0,
     "hasRead": false,
-    "createdAt": "2024-01-25T10:00:00"
+    "createdAt": "2024-01-20T09:00:00",
+    "updatedAt": "2024-01-20T09:00:00"
   },
   "timestamp": 1700000000000
 }
@@ -2221,9 +3029,11 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ### 8.2 更新公告
 
+更新公告内容。
+
 **接口地址**: `PUT /announcements/{id}`
 
-**权限要求**: 管理员
+**权限要求**: 管理员 (ADMIN)
 
 **路径参数**:
 
@@ -2234,6 +3044,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 **请求体**: 同创建公告
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -2247,9 +3058,11 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ### 8.3 删除公告
 
+删除公告。
+
 **接口地址**: `DELETE /announcements/{id}`
 
-**权限要求**: 管理员
+**权限要求**: 管理员 (ADMIN)
 
 **路径参数**:
 
@@ -2258,6 +3071,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 | id | Long | 是 | 公告ID |
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -2271,9 +3085,11 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ### 8.4 发布公告
 
+发布公告。
+
 **接口地址**: `POST /announcements/{id}/publish`
 
-**权限要求**: 管理员
+**权限要求**: 管理员 (ADMIN)
 
 **路径参数**:
 
@@ -2282,11 +3098,15 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 | id | Long | 是 | 公告ID |
 
 **响应示例**:
+
 ```json
 {
   "success": true,
   "message": "公告发布成功",
-  "data": { },
+  "data": {
+    "id": 1,
+    "isPublished": true
+  },
   "timestamp": 1700000000000
 }
 ```
@@ -2295,9 +3115,11 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ### 8.5 取消发布公告
 
+取消发布公告。
+
 **接口地址**: `POST /announcements/{id}/unpublish`
 
-**权限要求**: 管理员
+**权限要求**: 管理员 (ADMIN)
 
 **路径参数**:
 
@@ -2306,11 +3128,15 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 | id | Long | 是 | 公告ID |
 
 **响应示例**:
+
 ```json
 {
   "success": true,
   "message": "公告已取消发布",
-  "data": { },
+  "data": {
+    "id": 1,
+    "isPublished": false
+  },
   "timestamp": 1700000000000
 }
 ```
@@ -2319,9 +3145,11 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ### 8.6 置顶公告
 
+置顶公告。
+
 **接口地址**: `POST /announcements/{id}/pin`
 
-**权限要求**: 管理员
+**权限要求**: 管理员 (ADMIN)
 
 **路径参数**:
 
@@ -2330,11 +3158,15 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 | id | Long | 是 | 公告ID |
 
 **响应示例**:
+
 ```json
 {
   "success": true,
   "message": "公告置顶成功",
-  "data": { },
+  "data": {
+    "id": 1,
+    "isPinned": true
+  },
   "timestamp": 1700000000000
 }
 ```
@@ -2343,9 +3175,11 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ### 8.7 取消置顶公告
 
+取消置顶公告。
+
 **接口地址**: `POST /announcements/{id}/unpin`
 
-**权限要求**: 管理员
+**权限要求**: 管理员 (ADMIN)
 
 **路径参数**:
 
@@ -2354,11 +3188,15 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 | id | Long | 是 | 公告ID |
 
 **响应示例**:
+
 ```json
 {
   "success": true,
   "message": "公告取消置顶成功",
-  "data": { },
+  "data": {
+    "id": 1,
+    "isPinned": false
+  },
   "timestamp": 1700000000000
 }
 ```
@@ -2366,6 +3204,8 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 ---
 
 ### 8.8 标记公告已读
+
+标记公告为已读。
 
 **接口地址**: `POST /announcements/{id}/read`
 
@@ -2378,6 +3218,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 | id | Long | 是 | 公告ID |
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -2391,11 +3232,14 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ### 8.9 标记全部已读
 
+标记所有公告为已读。
+
 **接口地址**: `POST /announcements/read-all`
 
 **权限要求**: 需要登录
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -2409,6 +3253,8 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ### 8.10 获取公告详情
 
+获取公告详情。
+
 **接口地址**: `GET /announcements/{id}`
 
 **权限要求**: 需要登录
@@ -2420,6 +3266,7 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 | id | Long | 是 | 公告ID |
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -2434,10 +3281,13 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
     "authorName": "admin",
     "isPinned": true,
     "isPublished": true,
+    "publishAt": "2024-01-20T10:00:00",
+    "expireAt": "2024-01-21T10:00:00",
     "viewCount": 100,
     "readCount": 50,
     "hasRead": true,
-    "createdAt": "2024-01-25T10:00:00"
+    "createdAt": "2024-01-20T09:00:00",
+    "updatedAt": "2024-01-20T09:00:00"
   },
   "timestamp": 1700000000000
 }
@@ -2446,6 +3296,8 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 ---
 
 ### 8.11 获取已发布公告列表
+
+获取已发布公告列表。
 
 **接口地址**: `GET /announcements/published`
 
@@ -2458,25 +3310,11 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 | page | Integer | 否 | 页码，默认0 |
 | size | Integer | 否 | 每页数量，默认10 |
 
-**响应示例**:
-```json
-{
-  "success": true,
-  "message": "Operation successful",
-  "data": {
-    "content": [],
-    "totalElements": 10,
-    "totalPages": 1,
-    "number": 0,
-    "size": 10
-  },
-  "timestamp": 1700000000000
-}
-```
-
 ---
 
 ### 8.12 获取有效公告列表
+
+获取有效公告列表（已发布且未过期）。
 
 **接口地址**: `GET /announcements/active`
 
@@ -2489,17 +3327,18 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 | page | Integer | 否 | 页码，默认0 |
 | size | Integer | 否 | 每页数量，默认10 |
 
-**说明**: 返回已发布且未过期的公告
-
 ---
 
 ### 8.13 获取置顶公告列表
+
+获取置顶公告列表。
 
 **接口地址**: `GET /announcements/pinned`
 
 **权限要求**: 需要登录
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -2508,7 +3347,11 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
     {
       "id": 1,
       "title": "系统维护通知",
-      "isPinned": true
+      "content": "系统将于今晚进行维护",
+      "type": "MAINTENANCE",
+      "priority": "HIGH",
+      "isPinned": true,
+      "isPublished": true
     }
   ],
   "timestamp": 1700000000000
@@ -2518,6 +3361,8 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 ---
 
 ### 8.14 按类型获取公告
+
+按类型获取公告列表。
 
 **接口地址**: `GET /announcements/type/{type}`
 
@@ -2540,9 +3385,11 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ### 8.15 获取所有公告（管理员）
 
+获取所有公告列表（包括未发布）。
+
 **接口地址**: `GET /announcements/all`
 
-**权限要求**: 管理员
+**权限要求**: 管理员 (ADMIN)
 
 **查询参数**:
 
@@ -2555,19 +3402,25 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ### 8.16 获取公告统计（管理员）
 
+获取公告统计数据。
+
 **接口地址**: `GET /announcements/statistics`
 
-**权限要求**: 管理员
+**权限要求**: 管理员 (ADMIN)
 
 **响应示例**:
+
 ```json
 {
   "success": true,
   "message": "Operation successful",
   "data": {
-    "total": 20,
-    "published": 15,
-    "pinned": 3
+    "total": 50,
+    "published": 30,
+    "unpublished": 20,
+    "pinned": 5,
+    "todayViews": 200,
+    "todayReads": 150
   },
   "timestamp": 1700000000000
 }
@@ -2577,19 +3430,22 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ### 8.17 获取用户阅读统计
 
+获取当前用户的公告阅读统计。
+
 **接口地址**: `GET /announcements/read-statistics`
 
 **权限要求**: 需要登录
 
 **响应示例**:
+
 ```json
 {
   "success": true,
   "message": "Operation successful",
   "data": {
-    "totalActive": 10,
-    "readCount": 8,
-    "unreadCount": 2
+    "totalAnnouncements": 30,
+    "readCount": 25,
+    "unreadCount": 5
   },
   "timestamp": 1700000000000
 }
@@ -2599,27 +3455,24 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ## 9. 敏感词管理模块 (Sensitive Words)
 
-> 所有敏感词管理接口需要 ADMIN 角色
-> 敏感词支持三种高效过滤算法：KMP、Trie树、AC自动机
-> 敏感词存储在txt文件中，支持热加载
-
-### 算法说明
-
-| 算法 | 说明 | 时间复杂度 | 适用场景 |
-|------|------|-----------|---------|
-| KMP | Knuth-Morris-Pratt字符串匹配算法 | O(n+m) | 单个敏感词匹配效率高 |
-| Trie | 前缀树算法 | O(n×m) | 前缀匹配，适合大量敏感词 |
-| AC | Aho-Corasick自动机算法 | O(n) | 多模式匹配，推荐使用 |
+> 所有敏感词管理接口均需要管理员权限 (ADMIN)
 
 ### 9.1 添加敏感词
 
+添加单个敏感词。
+
 **接口地址**: `POST /admin/sensitive-words`
 
-**权限要求**: ADMIN
+**权限要求**: 管理员 (ADMIN)
 
-**请求体**: 纯文本字符串（敏感词）
+**请求体**: 
+
+```
+敏感词文本
+```
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -2633,16 +3486,20 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ### 9.2 批量添加敏感词
 
+批量添加敏感词。
+
 **接口地址**: `POST /admin/sensitive-words/batch`
 
-**权限要求**: ADMIN
+**权限要求**: 管理员 (ADMIN)
 
 **请求体**:
+
 ```json
 ["敏感词1", "敏感词2", "敏感词3"]
 ```
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -2656,13 +3513,20 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ### 9.3 删除敏感词
 
+删除单个敏感词。
+
 **接口地址**: `DELETE /admin/sensitive-words`
 
-**权限要求**: ADMIN
+**权限要求**: 管理员 (ADMIN)
 
-**请求体**: 纯文本字符串（敏感词）
+**请求体**: 
+
+```
+敏感词文本
+```
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -2676,16 +3540,20 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ### 9.4 批量删除敏感词
 
+批量删除敏感词。
+
 **接口地址**: `DELETE /admin/sensitive-words/batch`
 
-**权限要求**: ADMIN
+**权限要求**: 管理员 (ADMIN)
 
 **请求体**:
+
 ```json
 ["敏感词1", "敏感词2"]
 ```
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -2699,11 +3567,14 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ### 9.5 获取所有敏感词
 
+获取所有敏感词列表。
+
 **接口地址**: `GET /admin/sensitive-words`
 
-**权限要求**: ADMIN
+**权限要求**: 管理员 (ADMIN)
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -2717,11 +3588,14 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ### 9.6 获取敏感词数量
 
+获取敏感词总数。
+
 **接口地址**: `GET /admin/sensitive-words/count`
 
-**权限要求**: ADMIN
+**权限要求**: 管理员 (ADMIN)
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -2735,13 +3609,14 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ### 9.7 重新加载敏感词
 
+从文件重新加载敏感词库。
+
 **接口地址**: `POST /admin/sensitive-words/reload`
 
-**权限要求**: ADMIN
-
-**说明**: 从文件重新加载敏感词到内存
+**权限要求**: 管理员 (ADMIN)
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -2753,15 +3628,16 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 7.8 保存敏感词到文件
+### 9.8 保存敏感词到文件
+
+保存敏感词到文件。
 
 **接口地址**: `POST /admin/sensitive-words/save`
 
-**权限要求**: ADMIN
-
-**说明**: 将当前内存中的敏感词保存到文件
+**权限要求**: 管理员 (ADMIN)
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -2775,13 +3651,26 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ### 9.9 检查文本是否包含敏感词
 
+检查文本是否包含敏感词。
+
 **接口地址**: `POST /admin/sensitive-words/check`
 
-**权限要求**: ADMIN
+**权限要求**: 管理员 (ADMIN)
 
-**请求体**: 纯文本字符串
+**查询参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| algorithm | String | 否 | 算法类型：KMP/TRIE/AC |
+
+**请求体**: 
+
+```
+要检查的文本内容
+```
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -2793,15 +3682,28 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ---
 
-### 7.10 过滤敏感词
+### 9.10 过滤敏感词
+
+过滤文本中的敏感词。
 
 **接口地址**: `POST /admin/sensitive-words/filter`
 
-**权限要求**: ADMIN
+**权限要求**: 管理员 (ADMIN)
 
-**请求体**: 纯文本字符串
+**查询参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| algorithm | String | 否 | 算法类型：KMP/TRIE/AC |
+
+**请求体**: 
+
+```
+要过滤的文本内容
+```
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -2815,13 +3717,26 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
 
 ### 9.11 查找文本中的敏感词
 
+查找文本中包含的所有敏感词。
+
 **接口地址**: `POST /admin/sensitive-words/find`
 
-**权限要求**: ADMIN
+**权限要求**: 管理员 (ADMIN)
 
-**请求体**: 纯文本字符串
+**查询参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| algorithm | String | 否 | 算法类型：KMP/TRIE/AC |
+
+**请求体**: 
+
+```
+要查找的文本内容
+```
 
 **响应示例**:
+
 ```json
 {
   "success": true,
@@ -2830,115 +3745,117 @@ PUT /users/me/password?oldPassword=oldpass&newPassword=newpass123
   "timestamp": 1700000000000
 }
 ```
+
+---
+
+### 9.12 查找所有匹配结果
+
+查找文本中所有敏感词的匹配位置。
+
+**接口地址**: `POST /admin/sensitive-words/matches`
+
+**权限要求**: 管理员 (ADMIN)
+
+**请求体**: 
+
+```
+要查找的文本内容
+```
+
+**响应示例**:
+
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": [
+    {
+      "word": "敏感词1",
+      "startIndex": 5,
+      "endIndex": 8
+    },
+    {
+      "word": "敏感词2",
+      "startIndex": 15,
+      "endIndex": 18
+    }
+  ],
+  "timestamp": 1700000000000
 }
 ```
 
 ---
 
-## 10. WebSocket 接口
+### 9.13 获取算法信息
 
-### 10.1 连接端点
+获取敏感词过滤算法信息。
 
-**WebSocket URL**: `ws://localhost:8080/api/ws`
+**接口地址**: `GET /admin/sensitive-words/algorithm`
 
-**认证方式**: 在连接时传递Token
+**权限要求**: 管理员 (ADMIN)
 
-```javascript
-// SockJS 连接示例
-const socket = new SockJS('http://localhost:8080/api/ws');
-const stompClient = Stomp.over(socket);
+**响应示例**:
 
-stompClient.connect({
-  'Authorization': 'Bearer ' + token
-}, function(frame) {
-  console.log('Connected: ' + frame);
-});
+```json
+{
+  "success": true,
+  "message": "Operation successful",
+  "data": {
+    "defaultAlgorithm": "AC",
+    "availableAlgorithms": ["KMP", "TRIE", "AC"]
+  },
+  "timestamp": 1700000000000
+}
 ```
 
-### 10.2 订阅主题
+**算法说明**:
 
-| 主题 | 说明 |
+| 算法 | 说明 |
 |------|------|
-| `/topic/room.{roomId}` | 接收聊天室消息 |
-| `/topic/room.{roomId}.typing` | 接收输入状态 |
-| `/topic/user.status` | 接收用户在线状态变化 |
+| KMP | KMP字符串匹配算法 |
+| TRIE | Trie树算法 |
+| AC | AC自动机算法（默认，性能最优） |
 
-### 10.3 发送消息
+---
 
-**发送目标**: `/app/chat.send.{roomId}`
+### 9.14 设置默认算法
 
-**消息格式**:
+设置默认敏感词过滤算法。
+
+**接口地址**: `PUT /admin/sensitive-words/algorithm`
+
+**权限要求**: 管理员 (ADMIN)
+
+**查询参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| algorithm | String | 是 | 算法类型：KMP/TRIE/AC |
+
+**请求示例**:
+
+```
+PUT /admin/sensitive-words/algorithm?algorithm=TRIE
+```
+
+**响应示例**:
+
 ```json
 {
-  "roomId": 1,
-  "content": "大家好！",
-  "type": "TEXT"
+  "success": true,
+  "message": "默认算法设置成功",
+  "data": null,
+  "timestamp": 1700000000000
 }
-```
-
-### 10.4 加入聊天室通知
-
-**发送目标**: `/app/chat.join.{roomId}`
-
-### 10.5 离开聊天室通知
-
-**发送目标**: `/app/chat.leave.{roomId}`
-
-### 10.6 输入状态
-
-**发送目标**: `/app/chat.typing.{roomId}`
-
-### 10.7 用户状态更新
-
-**发送目标**: `/app/user.status`
-
-**消息格式**:
-```json
-{
-  "status": "ONLINE"
-}
-```
-
-### 10.8 心跳机制
-
-> 心跳机制用于保持WebSocket连接活跃，检测连接状态
-
-**心跳间隔**: 30秒
-
-**超时时间**: 90秒（无心跳则判定离线）
-
-**发送目标**: `/app/heartbeat`
-
-**客户端实现示例**:
-```javascript
-// 自动心跳（推荐）
-// Spring WebSocket内置心跳，客户端无需手动发送
-
-// 手动心跳（可选）
-setInterval(() => {
-  stompClient.send('/app/heartbeat', {});
-}, 25000);
-```
-
-**心跳响应**:
-- 服务端收到心跳后更新用户最后活跃时间
-- 超时未收到心跳自动将用户设为离线状态
-- 离线状态会广播到 `/topic/user.status`
-
-**连接保活配置**:
-```yaml
-# application.yaml
-websocket:
-  heartbeat:
-    interval: 30000      # 心跳间隔（毫秒）
-    timeout: 90000       # 超时时间（毫秒）
 ```
 
 ---
 
-## 11. 数据模型
+## 10. 数据模型
 
-### 11.1 User (用户)
+### 10.1 用户相关
+
+#### UserDTO
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
@@ -2947,27 +3864,44 @@ websocket:
 | nickname | String | 昵称 |
 | email | String | 邮箱 |
 | avatar | String | 头像URL |
-| status | String | 状态：ONLINE/OFFLINE/BUZY/AWAY |
+| status | String | 状态：ONLINE/OFFLINE/BUSY/AWAY |
 | role | String | 角色：USER/ADMIN |
 | createdAt | DateTime | 创建时间 |
 
-### 11.2 ChatRoom (聊天室)
+#### AuthResponse
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| token | String | JWT Token |
+| tokenType | String | Token类型 |
+| expiresIn | Long | 有效期（毫秒） |
+| user | UserDTO | 用户信息 |
+
+---
+
+### 10.2 聊天室相关
+
+#### ChatRoomDTO
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | id | Long | 聊天室ID |
-| name | String | 名称 |
+| name | String | 聊天室名称 |
 | description | String | 描述 |
 | avatar | String | 头像URL |
-| ownerId | Long | 所有者ID |
-| ownerName | String | 所有者名称 |
+| ownerId | Long | 创建者ID |
+| ownerName | String | 创建者名称 |
 | type | String | 类型：PUBLIC/PRIVATE/GROUP |
 | maxMembers | Integer | 最大成员数 |
 | status | String | 状态：ACTIVE/INACTIVE/ARCHIVED |
 | memberCount | Integer | 成员数量 |
 | createdAt | DateTime | 创建时间 |
 
-### 11.3 Message (消息)
+---
+
+### 10.3 消息相关
+
+#### MessageDTO
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
@@ -2980,111 +3914,46 @@ websocket:
 | type | String | 类型：TEXT/IMAGE/FILE/SYSTEM/EMOJI |
 | createdAt | DateTime | 创建时间 |
 
-### 11.4 BannedUser (封禁用户)
+---
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | Long | 记录ID |
-| userId | Long | 用户ID |
-| username | String | 用户名 |
-| userNickname | String | 用户昵称 |
-| bannedById | Long | 封禁者ID |
-| bannedByName | String | 封禁者名称 |
-| reason | String | 封禁原因 |
-| type | String | 类型：PERMANENT/TEMPORARY/WARNING |
-| endTime | DateTime | 结束时间 |
-| active | Boolean | 是否生效 |
-| createdAt | DateTime | 创建时间 |
+### 10.4 举报相关
 
-### 11.5 SensitiveWord (敏感词)
-
-> 敏感词存储在txt文件中，不使用数据库存储
-> 支持三种算法：KMP、Trie树、AC自动机
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| word | String | 敏感词 |
-
-**配置文件**:
-```yaml
-sensitive-word:
-  file-path: sensitive-words.txt
-  algorithm: AC
-  auto-reload: true
-  reload-interval: 300000
-```
-
-### 11.6 SystemLog (系统日志)
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | Long | 日志ID |
-| action | String | 操作类型 |
-| entityType | String | 实体类型 |
-| entityId | Long | 实体ID |
-| operatorId | Long | 操作者ID |
-| operatorName | String | 操作者名称 |
-| targetUserId | Long | 目标用户ID |
-| details | String | 详情 |
-| ipAddress | String | IP地址 |
-| level | String | 级别：INFO/WARNING/ERROR/CRITICAL |
-| createdAt | DateTime | 创建时间 |
-
-### 11.7 EmailVerification (邮箱验证)
-
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | Long | 验证记录ID |
-| email | String | 邮箱地址 |
-| code | String | 验证码 |
-| type | String | 类型：REGISTER/RESET_PASSWORD/CHANGE_EMAIL |
-| expiresAt | DateTime | 过期时间 |
-| used | Boolean | 是否已使用 |
-| createdAt | DateTime | 创建时间 |
-
-### 11.8 Report (举报)
+#### ReportDTO
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | id | Long | 举报ID |
-| reporterId | Long | 举报人ID |
-| reporterName | String | 举报人名称 |
+| reporterId | Long | 举报者ID |
+| reporterName | String | 举报者名称 |
 | reportedUserId | Long | 被举报用户ID |
 | reportedUserName | String | 被举报用户名称 |
 | reportedRoomId | Long | 被举报聊天室ID |
 | reportedRoomName | String | 被举报聊天室名称 |
 | reportedMessageId | Long | 被举报消息ID |
-| type | String | 举报类型：SPAM/HARASSMENT/INAPPROPRIATE_CONTENT/VIOLENCE/FRAUD/OTHER |
-| targetType | String | 目标类型：USER/ROOM/MESSAGE |
+| type | String | 举报类型 |
+| targetType | String | 目标类型 |
 | reason | String | 举报原因 |
 | description | String | 详细描述 |
-| status | String | 状态：PENDING/PROCESSING/RESOLVED/REJECTED |
-| handlerId | Long | 处理人ID |
-| handlerName | String | 处理人名称 |
+| status | String | 状态 |
+| handlerId | Long | 处理者ID |
+| handlerName | String | 处理者名称 |
 | handleResult | String | 处理结果 |
 | handledAt | DateTime | 处理时间 |
 | createdAt | DateTime | 创建时间 |
 
-### 11.9 EmailSendLog (邮件发送日志)
+---
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| id | Long | 日志ID |
-| email | String | 邮箱地址 |
-| type | String | 邮件类型：VERIFICATION/SIMPLE/HTML |
-| sendDate | Date | 发送日期 |
-| sendCount | Integer | 当日发送次数 |
-| createdAt | DateTime | 创建时间 |
+### 10.5 公告相关
 
-### 11.10 Announcement (公告)
+#### AnnouncementDTO
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | id | Long | 公告ID |
-| title | String | 公告标题 |
-| content | String | 公告内容 |
-| type | String | 类型：NORMAL/IMPORTANT/SYSTEM/MAINTENANCE/UPDATE |
-| priority | String | 优先级：LOW/NORMAL/HIGH/URGENT |
+| title | String | 标题 |
+| content | String | 内容 |
+| type | String | 类型 |
+| priority | String | 优先级 |
 | authorId | Long | 作者ID |
 | authorName | String | 作者名称 |
 | isPinned | Boolean | 是否置顶 |
@@ -3097,59 +3966,96 @@ sensitive-word:
 | createdAt | DateTime | 创建时间 |
 | updatedAt | DateTime | 更新时间 |
 
-### 11.11 AnnouncementRead (公告已读记录)
+---
+
+### 10.6 其他模型
+
+#### BannedUserDTO
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | id | Long | 记录ID |
-| announcementId | Long | 公告ID |
 | userId | Long | 用户ID |
-| readAt | DateTime | 阅读时间 |
+| username | String | 用户名 |
+| userNickname | String | 用户昵称 |
+| bannedById | Long | 封禁者ID |
+| bannedByName | String | 封禁者名称 |
+| reason | String | 封禁原因 |
+| type | String | 封禁类型 |
+| endTime | DateTime | 解封时间 |
+| active | Boolean | 是否生效 |
+| createdAt | DateTime | 创建时间 |
 
----
+#### SystemLogDTO
 
-## 12. 错误码说明
-
-| 错误信息 | 说明 |
-|----------|------|
-| Username is already taken | 用户名已被使用 |
-| Email is already in use | 邮箱已被使用 |
-| Invalid username or password | 用户名或密码错误 |
-| Your account has been banned | 账号已被封禁 |
-| You are banned from sending messages | 您已被禁止发送消息 |
-| User not found | 用户不存在 |
-| Room not found | 聊天室不存在 |
-| Message not found | 消息不存在 |
-| You are not a member of this room | 您不是该聊天室成员 |
-| Room is full | 聊天室已满 |
-| Invalid room password | 聊天室密码错误 |
-| Only room owner can delete the room | 只有聊天室所有者才能删除 |
-| Cannot ban admin user | 不能封禁管理员用户 |
-| User is already banned | 用户已被封禁 |
-| Sensitive word already exists | 敏感词已存在 |
-| 该邮箱已被注册 | 注册时邮箱已存在 |
-| 发送验证码次数过多，请1小时后再试 | 验证码发送频率超限 |
-| 请等待X秒后再发送验证码 | 验证码发送间隔限制 |
-| 验证码无效或已过期 | 验证码错误或过期 |
-| 无效的验证类型 | 验证类型参数错误 |
-| 今日举报次数已达上限 | 每日举报次数超限 |
-| 该用户已有待处理的举报 | 重复举报限制 |
-| 该消息已有待处理的举报 | 重复举报限制 |
-| 举报记录不存在 | 举报ID无效 |
-| 该举报已处理完成 | 已处理的举报不可重复处理 |
-| 无效的举报类型 | 举报类型参数错误 |
-| 无效的举报目标类型 | 目标类型参数错误 |
-| 无效的举报状态 | 状态参数错误 |
-| 今日发送邮件次数已达上限 | 每日邮件发送次数超限 |
-
----
-
-## 13. 版本历史
-
-| 版本 | 日期 | 说明 |
+| 字段 | 类型 | 说明 |
 |------|------|------|
-| v1.0.0 | 2024-01-01 | 初始版本，包含基础聊天功能 |
-| v1.1.0 | 2024-01-15 | 新增管理功能和敏感词过滤 |
-| v1.2.0 | 2024-01-20 | 新增邮箱验证功能 |
-| v1.3.0 | 2024-01-25 | 新增举报功能和邮件每日发送限制 |
-| v1.4.0 | 2024-01-30 | 新增公告管理功能 |
+| id | Long | 日志ID |
+| action | String | 操作类型 |
+| entityType | String | 实体类型 |
+| entityId | Long | 实体ID |
+| operatorId | Long | 操作者ID |
+| operatorName | String | 操作者名称 |
+| targetUserId | Long | 目标用户ID |
+| details | String | 详细信息 |
+| ipAddress | String | IP地址 |
+| level | String | 日志级别 |
+| createdAt | DateTime | 创建时间 |
+
+#### DashboardStats
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| totalUsers | Long | 总用户数 |
+| onlineUsers | Long | 在线用户数 |
+| totalRooms | Long | 总聊天室数 |
+| activeRooms | Long | 活跃聊天室数 |
+| totalMessages | Long | 总消息数 |
+| todayMessages | Long | 今日消息数 |
+| bannedUsers | Long | 封禁用户数 |
+| sensitiveWordCount | Long | 敏感词数量 |
+| topActiveRooms | List | 活跃聊天室列表 |
+
+---
+
+## 附录
+
+### A. 配置参数
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| jwt.expiration | 86400000 | Token有效期（毫秒） |
+| email.verification.codeExpiration | 300 | 验证码有效期（秒） |
+| email.verification.codeLength | 6 | 验证码长度 |
+| email.verification.maxSendPerHour | 5 | 每小时最大发送次数 |
+| email.dailyLimit.maxCount | 10 | 每日最大发送次数 |
+| websocket.heartbeatInterval | 30000 | 心跳间隔（毫秒） |
+| websocket.heartbeatTimeout | 90000 | 心跳超时（毫秒） |
+| chatRoom.maxMembers | 100 | 聊天室最大成员数 |
+| chatRoom.maxRoomsPerUser | 10 | 用户最大创建聊天室数 |
+| chatRoom.maxMessageLength | 5000 | 消息最大长度 |
+| sensitiveWord.algorithm | AC | 默认敏感词过滤算法 |
+| sensitiveWord.replacement | *** | 敏感词替换字符 |
+| roomRecommendation.enabled | true | 是否启用推荐功能 |
+| roomRecommendation.defaultStrategy | HYBRID | 默认推荐策略 |
+| roomRecommendation.recommendationLimit | 10 | 默认推荐数量 |
+| roomRecommendation.cacheDuration | 300 | 推荐结果缓存时间（秒） |
+| roomRecommendation.hybridWeights.activityWeight | 0.3 | 混合策略-活跃度权重 |
+| roomRecommendation.hybridWeights.popularityWeight | 0.3 | 混合策略-热度权重 |
+| roomRecommendation.hybridWeights.newestWeight | 0.2 | 混合策略-最新权重 |
+| roomRecommendation.hybridWeights.randomWeight | 0.2 | 混合策略-随机权重 |
+
+### B. 错误码对照表
+
+| 错误类型 | HTTP状态码 | 说明 |
+|----------|------------|------|
+| UnauthorizedException | 401 | 未授权 |
+| ForbiddenException | 403 | 权限不足 |
+| ResourceNotFoundException | 404 | 资源不存在 |
+| BusinessException | 400 | 业务异常 |
+| ValidationException | 400 | 参数验证失败 |
+
+---
+
+*文档版本: 1.0.0*
+*最后更新: 2024年1月*

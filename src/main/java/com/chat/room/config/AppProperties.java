@@ -20,6 +20,7 @@ public class AppProperties {
     private ChatRoom chatRoom = new ChatRoom();
     private FileUpload fileUpload = new FileUpload();
     private Security security = new Security();
+    private RoomRecommendation roomRecommendation = new RoomRecommendation();
 
     @Data
     public static class Jwt {
@@ -113,6 +114,23 @@ public class AppProperties {
         private int usernameMaxLength = 20;
         private int loginMaxAttempts = 5;
         private long loginLockDuration = 1800000;
+    }
+
+    @Data
+    public static class RoomRecommendation {
+        private boolean enabled = true;
+        private String defaultStrategy = "HYBRID";
+        private int recommendationLimit = 10;
+        private int cacheDuration = 300;
+        private HybridWeights hybridWeights = new HybridWeights();
+
+        @Data
+        public static class HybridWeights {
+            private double activityWeight = 0.3;
+            private double popularityWeight = 0.3;
+            private double newestWeight = 0.2;
+            private double randomWeight = 0.2;
+        }
     }
 
     public List<String> getAllowedOriginsList() {
