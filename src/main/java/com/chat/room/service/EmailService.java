@@ -46,7 +46,7 @@ public class EmailService {
             log.info("Verification email sent successfully to: {}", to);
         } catch (MessagingException e) {
             log.error("Failed to send verification email to: {}", to, e);
-            throw new RuntimeException("Failed to send verification email", e);
+            throw new RuntimeException("发送验证邮件失败", e);
         }
     }
 
@@ -66,7 +66,7 @@ public class EmailService {
             log.info("Simple email sent successfully to: {}", to);
         } catch (Exception e) {
             log.error("Failed to send simple email to: {}", to, e);
-            throw new RuntimeException("Failed to send email", e);
+            throw new RuntimeException("发送邮件失败", e);
         }
     }
 
@@ -88,7 +88,7 @@ public class EmailService {
             log.info("HTML email sent successfully to: {}", to);
         } catch (MessagingException e) {
             log.error("Failed to send HTML email to: {}", to, e);
-            throw new RuntimeException("Failed to send HTML email", e);
+            throw new RuntimeException("发送HTML邮件失败", e);
         }
     }
 

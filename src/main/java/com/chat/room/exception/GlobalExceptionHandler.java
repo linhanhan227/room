@@ -55,7 +55,7 @@ public class GlobalExceptionHandler {
         log.error("Authentication failed: {}", ex.getMessage());
         return ResponseEntity
                 .status(HttpStatus.UNAUTHORIZED)
-                .body(ApiResponse.error("Authentication failed: " + ex.getMessage()));
+                .body(ApiResponse.error("认证失败: " + ex.getMessage()));
     }
 
     @ExceptionHandler(BadCredentialsException.class)
@@ -63,7 +63,7 @@ public class GlobalExceptionHandler {
         log.error("Bad credentials: {}", ex.getMessage());
         return ResponseEntity
                 .status(HttpStatus.UNAUTHORIZED)
-                .body(ApiResponse.error("Invalid username or password"));
+                .body(ApiResponse.error("用户名或密码错误"));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -77,7 +77,7 @@ public class GlobalExceptionHandler {
         log.error("Validation failed: {}", errors);
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error("Validation failed", errors));
+                .body(ApiResponse.error("验证失败", errors));
     }
 
     @ExceptionHandler(Exception.class)
@@ -85,6 +85,6 @@ public class GlobalExceptionHandler {
         log.error("Unexpected error: ", ex);
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.error("An unexpected error occurred"));
+                .body(ApiResponse.error("发生意外错误"));
     }
 }

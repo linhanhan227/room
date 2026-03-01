@@ -78,7 +78,7 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with username: " + request.getUsername()));
 
         if (bannedUserRepository.isUserBanned(user.getId(), LocalDateTime.now())) {
-            throw new BusinessException("Your account has been banned");
+            throw new BusinessException("您的账户已被封禁");
         }
 
         user.setStatus(User.UserStatus.ONLINE);
@@ -173,7 +173,7 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
 
         if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
-            throw new BusinessException("Old password is incorrect");
+            throw new BusinessException("旧密码不正确");
         }
 
         user.setPassword(passwordEncoder.encode(newPassword));

@@ -40,14 +40,14 @@ public class MessageService {
         User sender = getCurrentUser();
 
         if (bannedUserRepository.isUserBanned(sender.getId(), LocalDateTime.now())) {
-            throw new BusinessException("You are banned from sending messages");
+            throw new BusinessException("您已被禁止发送消息");
         }
 
         ChatRoom room = chatRoomRepository.findById(request.getRoomId())
-                .orElseThrow(() -> new ResourceNotFoundException("Room", request.getRoomId()));
+                .orElseThrow(() -> new ResourceNotFoundException("聊天室", request.getRoomId()));
 
         if (!chatRoomRepository.isUserInRoom(room.getId(), sender.getId())) {
-            throw new BusinessException("You are not a member of this room");
+            throw new BusinessException("您不是该聊天室的成员");
         }
 
         String content = request.getContent();

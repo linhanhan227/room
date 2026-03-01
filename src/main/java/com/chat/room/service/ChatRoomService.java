@@ -129,7 +129,7 @@ public class ChatRoomService {
                 .orElseThrow(() -> new ResourceNotFoundException("Room", roomId));
 
         if (!room.getOwner().getId().equals(user.getId())) {
-            throw new ForbiddenException("Only room owner can delete the room");
+            throw new ForbiddenException("只有聊天室所有者可以删除聊天室");
         }
 
         messageRepository.deleteByRoomId(roomId);
@@ -203,7 +203,7 @@ public class ChatRoomService {
         }
 
         if (room.getOwner().getId().equals(userId)) {
-            throw new BusinessException("Cannot kick the room owner");
+            throw new BusinessException("不能踢出聊天室所有者");
         }
 
         roomMemberRepository.deleteByRoomIdAndUserId(roomId, userId);
