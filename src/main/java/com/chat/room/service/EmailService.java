@@ -6,6 +6,9 @@ import com.chat.room.exception.BusinessException;
 import com.chat.room.repository.EmailSendLogRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.mail.MailAuthenticationException;
+import org.springframework.mail.MailException;
+import org.springframework.mail.MailSendException;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -13,7 +16,6 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import java.time.LocalDate;
 
@@ -44,9 +46,32 @@ public class EmailService {
             
             mailSender.send(message);
             log.info("Verification email sent successfully to: {}", to);
-        } catch (MessagingException e) {
+        } catch (MailAuthenticationException e) {
+            log.error("SMTP authentication failed for: {}", to, e);
+            throw new BusinessException("邮件发送失败：SMTP认证失败，请检查邮箱账号和密码/授权码是否正确");
+        } catch (MailSendException e) {
             log.error("Failed to send verification email to: {}", to, e);
-            throw new RuntimeException("发送验证邮件失败", e);
+            Throwable cause = e.getCause();
+            if (cause instanceof java.net.SocketTimeoutException) {
+                throw new BusinessException("邮件发送失败：连接SMTP服务器超时，请检查网络连接或稍后重试");
+            } else if (cause instanceof java.net.ConnectException) {
+                throw new BusinessException("邮件发送失败：无法连接到SMTP服务器，请检查SMTP配置");
+            } else {
+                throw new BusinessException("邮件发送失败：发送失败，请检查收件人邮箱地址是否正确");
+            }
+        } catch (MailException e) {
+            log.error("Failed to send verification email to: {}", to, e);
+            Throwable cause = e.getCause();
+            if (cause instanceof java.net.SocketTimeoutException) {
+                throw new BusinessException("邮件发送失败：连接SMTP服务器超时，请检查网络连接或稍后重试");
+            } else if (cause instanceof java.net.ConnectException) {
+                throw new BusinessException("邮件发送失败：无法连接到SMTP服务器，请检查SMTP配置");
+            } else {
+                throw new BusinessException("邮件发送失败：" + e.getMessage());
+            }
+        } catch (Exception e) {
+            log.error("Unexpected error sending verification email to: {}", to, e);
+            throw new BusinessException("邮件发送失败：发生未知错误，请稍后重试");
         }
     }
 
@@ -64,9 +89,32 @@ public class EmailService {
             
             mailSender.send(message);
             log.info("Simple email sent successfully to: {}", to);
-        } catch (Exception e) {
+        } catch (MailAuthenticationException e) {
+            log.error("SMTP authentication failed for: {}", to, e);
+            throw new BusinessException("邮件发送失败：SMTP认证失败，请检查邮箱账号和密码/授权码是否正确");
+        } catch (MailSendException e) {
             log.error("Failed to send simple email to: {}", to, e);
-            throw new RuntimeException("发送邮件失败", e);
+            Throwable cause = e.getCause();
+            if (cause instanceof java.net.SocketTimeoutException) {
+                throw new BusinessException("邮件发送失败：连接SMTP服务器超时，请检查网络连接或稍后重试");
+            } else if (cause instanceof java.net.ConnectException) {
+                throw new BusinessException("邮件发送失败：无法连接到SMTP服务器，请检查SMTP配置");
+            } else {
+                throw new BusinessException("邮件发送失败：发送失败，请检查收件人邮箱地址是否正确");
+            }
+        } catch (MailException e) {
+            log.error("Failed to send simple email to: {}", to, e);
+            Throwable cause = e.getCause();
+            if (cause instanceof java.net.SocketTimeoutException) {
+                throw new BusinessException("邮件发送失败：连接SMTP服务器超时，请检查网络连接或稍后重试");
+            } else if (cause instanceof java.net.ConnectException) {
+                throw new BusinessException("邮件发送失败：无法连接到SMTP服务器，请检查SMTP配置");
+            } else {
+                throw new BusinessException("邮件发送失败：" + e.getMessage());
+            }
+        } catch (Exception e) {
+            log.error("Unexpected error sending simple email to: {}", to, e);
+            throw new BusinessException("邮件发送失败：发生未知错误，请稍后重试");
         }
     }
 
@@ -86,9 +134,32 @@ public class EmailService {
             
             mailSender.send(message);
             log.info("HTML email sent successfully to: {}", to);
-        } catch (MessagingException e) {
+        } catch (MailAuthenticationException e) {
+            log.error("SMTP authentication failed for: {}", to, e);
+            throw new BusinessException("邮件发送失败：SMTP认证失败，请检查邮箱账号和密码/授权码是否正确");
+        } catch (MailSendException e) {
             log.error("Failed to send HTML email to: {}", to, e);
-            throw new RuntimeException("发送HTML邮件失败", e);
+            Throwable cause = e.getCause();
+            if (cause instanceof java.net.SocketTimeoutException) {
+                throw new BusinessException("邮件发送失败：连接SMTP服务器超时，请检查网络连接或稍后重试");
+            } else if (cause instanceof java.net.ConnectException) {
+                throw new BusinessException("邮件发送失败：无法连接到SMTP服务器，请检查SMTP配置");
+            } else {
+                throw new BusinessException("邮件发送失败：发送失败，请检查收件人邮箱地址是否正确");
+            }
+        } catch (MailException e) {
+            log.error("Failed to send HTML email to: {}", to, e);
+            Throwable cause = e.getCause();
+            if (cause instanceof java.net.SocketTimeoutException) {
+                throw new BusinessException("邮件发送失败：连接SMTP服务器超时，请检查网络连接或稍后重试");
+            } else if (cause instanceof java.net.ConnectException) {
+                throw new BusinessException("邮件发送失败：无法连接到SMTP服务器，请检查SMTP配置");
+            } else {
+                throw new BusinessException("邮件发送失败：" + e.getMessage());
+            }
+        } catch (Exception e) {
+            log.error("Unexpected error sending HTML email to: {}", to, e);
+            throw new BusinessException("邮件发送失败：发生未知错误，请稍后重试");
         }
     }
 
