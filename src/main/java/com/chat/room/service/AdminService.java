@@ -33,7 +33,6 @@ public class AdminService {
     private final MessageRepository messageRepository;
     private final BannedUserRepository bannedUserRepository;
     private final SystemLogRepository systemLogRepository;
-    private final SensitiveWordService sensitiveWordService;
 
     @Transactional
     public BannedUserDTO banUser(BanUserRequest request) {
@@ -202,7 +201,6 @@ public class AdminService {
                 .count();
         Long totalMessages = messageRepository.count();
         Long bannedUsers = (long) bannedUserRepository.findByActiveTrue(Pageable.unpaged()).getContent().size();
-        Long sensitiveWordCount = (long) sensitiveWordService.getSensitiveWordCount();
 
         LocalDateTime todayStart = LocalDate.now().atStartOfDay();
         Long todayMessages = messageRepository.findAll().stream()
@@ -227,7 +225,6 @@ public class AdminService {
                 .totalMessages(totalMessages)
                 .todayMessages(todayMessages)
                 .bannedUsers(bannedUsers)
-                .sensitiveWordCount(sensitiveWordCount)
                 .topActiveRooms(topRooms)
                 .build();
     }

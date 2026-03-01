@@ -2355,7 +2355,6 @@ GET /messages/room/1/search?keyword=Hello&page=0&size=20
     "totalMessages": 50000,
     "todayMessages": 500,
     "bannedUsers": 10,
-    "sensitiveWordCount": 200,
     "topActiveRooms": [
       {
         "roomId": 1,
@@ -3455,11 +3454,18 @@ GET /admin/logs/by-user/1?page=0&size=20
 
 ## 9. 敏感词管理模块 (Sensitive Words)
 
+> **重要说明**：本模块的敏感词管理基于本地文件（`sensitive_words.txt`），不涉及数据库存储。所有敏感词操作直接读写本地文件，支持动态加载和定时自动重载。
+
 > 所有敏感词管理接口均需要管理员权限 (ADMIN)
+
+> **存储方式**：本地文本文件
+> **文件路径**：`src/main/resources/sensitive_words.txt`
+> **自动重载**：每5分钟自动重新加载敏感词库
+> **支持算法**：KMP、Trie、AC自动机（默认）
 
 ### 9.1 添加敏感词
 
-添加单个敏感词。
+添加单个敏感词到本地文件。
 
 **接口地址**: `POST /admin/sensitive-words`
 
@@ -3482,11 +3488,16 @@ GET /admin/logs/by-user/1?page=0&size=20
 }
 ```
 
+**说明**:
+- 敏感词会被添加到内存中的敏感词库
+- 需要调用"保存敏感词到文件"接口才能持久化到本地文件
+- 添加后会自动重新加载过滤算法
+
 ---
 
 ### 9.2 批量添加敏感词
 
-批量添加敏感词。
+批量添加敏感词到本地文件。
 
 **接口地址**: `POST /admin/sensitive-words/batch`
 
@@ -3513,7 +3524,7 @@ GET /admin/logs/by-user/1?page=0&size=20
 
 ### 9.3 删除敏感词
 
-删除单个敏感词。
+从本地文件中删除单个敏感词。
 
 **接口地址**: `DELETE /admin/sensitive-words`
 
@@ -3536,11 +3547,16 @@ GET /admin/logs/by-user/1?page=0&size=20
 }
 ```
 
+**说明**:
+- 从内存中的敏感词库删除该词
+- 需要调用"保存敏感词到文件"接口才能持久化到本地文件
+- 删除后会自动重新加载过滤算法
+
 ---
 
 ### 9.4 批量删除敏感词
 
-批量删除敏感词。
+从本地文件中批量删除敏感词。
 
 **接口地址**: `DELETE /admin/sensitive-words/batch`
 
@@ -3567,7 +3583,7 @@ GET /admin/logs/by-user/1?page=0&size=20
 
 ### 9.5 获取所有敏感词
 
-获取所有敏感词列表。
+获取本地文件中的所有敏感词列表。
 
 **接口地址**: `GET /admin/sensitive-words`
 
@@ -3584,11 +3600,16 @@ GET /admin/logs/by-user/1?page=0&size=20
 }
 ```
 
+**说明**:
+- 返回当前加载的敏感词列表
+- 敏感词存储在本地文件 `sensitive_words.txt` 中
+- 列表会随着文件重新加载而更新
+
 ---
 
 ### 9.6 获取敏感词数量
 
-获取敏感词总数。
+获取本地文件中的敏感词总数。
 
 **接口地址**: `GET /admin/sensitive-words/count`
 
@@ -3605,11 +3626,16 @@ GET /admin/logs/by-user/1?page=0&size=20
 }
 ```
 
+**说明**:
+- 返回当前加载的敏感词数量
+- 敏感词存储在本地文件 `sensitive_words.txt` 中
+- 数量会随着文件重新加载而更新
+
 ---
 
 ### 9.7 重新加载敏感词
 
-从文件重新加载敏感词库。
+从本地文件重新加载敏感词库。
 
 **接口地址**: `POST /admin/sensitive-words/reload`
 
@@ -3630,7 +3656,7 @@ GET /admin/logs/by-user/1?page=0&size=20
 
 ### 9.8 保存敏感词到文件
 
-保存敏感词到文件。
+将当前内存中的敏感词保存到本地文件。
 
 **接口地址**: `POST /admin/sensitive-words/save`
 
@@ -3646,6 +3672,11 @@ GET /admin/logs/by-user/1?page=0&size=20
   "timestamp": 1700000000000
 }
 ```
+
+**说明**:
+- 将内存中的敏感词库持久化到本地文件 `sensitive_words.txt`
+- 添加或删除敏感词后，需要调用此接口才能保存到文件
+- 系统每5分钟会自动重新加载文件，但不会自动保存
 
 ---
 
@@ -4013,7 +4044,6 @@ PUT /admin/sensitive-words/algorithm?algorithm=TRIE
 | totalMessages | Long | 总消息数 |
 | todayMessages | Long | 今日消息数 |
 | bannedUsers | Long | 封禁用户数 |
-| sensitiveWordCount | Long | 敏感词数量 |
 | topActiveRooms | List | 活跃聊天室列表 |
 
 ---

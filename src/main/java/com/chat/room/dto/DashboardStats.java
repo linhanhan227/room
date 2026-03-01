@@ -17,7 +17,6 @@ public class DashboardStats {
     private Long totalMessages;
     private Long todayMessages;
     private Long bannedUsers;
-    private Long sensitiveWordCount;
     private List<ActiveRoomStats> topActiveRooms;
 
     @Getter

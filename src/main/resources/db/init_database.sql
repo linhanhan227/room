@@ -1,0 +1,260 @@
+-- =============================================
+-- 聊天室系统数据库初始化脚本
+-- 数据库名: chat_room
+-- 字符集: UTF-8
+-- =============================================
+
+-- =============================================
+-- 1. 用户表 (users)
+-- =============================================
+CREATE TABLE IF NOT EXISTS `users` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '用户ID',
+    `username` VARCHAR(50) NOT NULL COMMENT '用户名',
+    `password` VARCHAR(255) NOT NULL COMMENT '密码',
+    `nickname` VARCHAR(50) DEFAULT NULL COMMENT '昵称',
+    `email` VARCHAR(100) DEFAULT NULL COMMENT '邮箱',
+    `avatar` VARCHAR(255) DEFAULT NULL COMMENT '头像',
+    `status` VARCHAR(20) DEFAULT 'OFFLINE' COMMENT '状态: ONLINE/OFFLINE/BUSY/AWAY',
+    `role` VARCHAR(20) DEFAULT 'USER' COMMENT '角色: USER/ADMIN',
+    `deleted` BOOLEAN DEFAULT FALSE COMMENT '是否删除',
+    `created_at` DATETIME NOT NULL COMMENT '创建时间',
+    `updated_at` DATETIME DEFAULT NULL COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_username` (`username`),
+    UNIQUE KEY `uk_email` (`email`),
+    KEY `idx_status` (`status`),
+    KEY `idx_role` (`role`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户表';
+
+-- =============================================
+-- 2. 聊天室表 (chat_rooms)
+-- =============================================
+CREATE TABLE IF NOT EXISTS `chat_rooms` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '聊天室ID',
+    `name` VARCHAR(100) NOT NULL COMMENT '聊天室名称',
+    `description` VARCHAR(500) DEFAULT NULL COMMENT '描述',
+    `avatar` VARCHAR(255) DEFAULT NULL COMMENT '头像',
+    `owner_id` BIGINT NOT NULL COMMENT '所有者ID',
+    `type` VARCHAR(20) DEFAULT 'PUBLIC' COMMENT '类型: PUBLIC/PRIVATE/GROUP',
+    `password` VARCHAR(255) DEFAULT NULL COMMENT '密码',
+    `max_members` INT DEFAULT 100 COMMENT '最大成员数',
+    `status` VARCHAR(20) DEFAULT 'ACTIVE' COMMENT '状态: ACTIVE/INACTIVE/ARCHIVED',
+    `deleted` BOOLEAN DEFAULT FALSE COMMENT '是否删除',
+    `created_at` DATETIME NOT NULL COMMENT '创建时间',
+    `updated_at` DATETIME DEFAULT NULL COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_owner_id` (`owner_id`),
+    KEY `idx_type` (`type`),
+    KEY `idx_status` (`status`),
+    CONSTRAINT `fk_chat_rooms_owner` FOREIGN KEY (`owner_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='聊天室表';
+
+-- =============================================
+-- 3. 聊天室成员关联表 (room_members)
+-- =============================================
+CREATE TABLE IF NOT EXISTS `room_members` (
+    `room_id` BIGINT NOT NULL COMMENT '聊天室ID',
+    `user_id` BIGINT NOT NULL COMMENT '用户ID',
+    `role` VARCHAR(20) DEFAULT 'MEMBER' COMMENT '角色: OWNER/ADMIN/MEMBER',
+    `last_read_at` DATETIME DEFAULT NULL COMMENT '最后阅读时间',
+    `muted` BOOLEAN DEFAULT FALSE COMMENT '是否禁言',
+    `deleted` BOOLEAN DEFAULT FALSE COMMENT '是否删除',
+    `joined_at` DATETIME DEFAULT NULL COMMENT '加入时间',
+    PRIMARY KEY (`room_id`, `user_id`),
+    KEY `idx_user_id` (`user_id`),
+    KEY `idx_role` (`role`),
+    CONSTRAINT `fk_room_members_room` FOREIGN KEY (`room_id`) REFERENCES `chat_rooms` (`id`),
+    CONSTRAINT `fk_room_members_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='聊天室成员关联表';
+
+-- =============================================
+-- 4. 消息表 (messages)
+-- =============================================
+CREATE TABLE IF NOT EXISTS `messages` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '消息ID',
+    `room_id` BIGINT NOT NULL COMMENT '聊天室ID',
+    `sender_id` BIGINT NOT NULL COMMENT '发送者ID',
+    `content` TEXT NOT NULL COMMENT '消息内容',
+    `type` VARCHAR(20) DEFAULT 'TEXT' COMMENT '消息类型: TEXT/IMAGE/FILE/SYSTEM/EMOJI',
+    `deleted` BOOLEAN DEFAULT FALSE COMMENT '是否删除',
+    `created_at` DATETIME NOT NULL COMMENT '创建时间',
+    `updated_at` DATETIME DEFAULT NULL COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_room_id` (`room_id`),
+    KEY `idx_sender_id` (`sender_id`),
+    KEY `idx_created_at` (`created_at`),
+    CONSTRAINT `fk_messages_room` FOREIGN KEY (`room_id`) REFERENCES `chat_rooms` (`id`),
+    CONSTRAINT `fk_messages_sender` FOREIGN KEY (`sender_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='消息表';
+
+-- =============================================
+-- 5. 公告表 (announcements)
+-- =============================================
+CREATE TABLE IF NOT EXISTS `announcements` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '公告ID',
+    `title` VARCHAR(200) NOT NULL COMMENT '标题',
+    `content` TEXT NOT NULL COMMENT '内容',
+    `type` VARCHAR(20) DEFAULT 'NORMAL' COMMENT '类型: NORMAL/IMPORTANT/SYSTEM/MAINTENANCE/UPDATE',
+    `priority` VARCHAR(20) DEFAULT 'NORMAL' COMMENT '优先级: LOW/NORMAL/HIGH/URGENT',
+    `author_id` BIGINT DEFAULT NULL COMMENT '作者ID',
+    `is_pinned` BOOLEAN DEFAULT FALSE COMMENT '是否置顶',
+    `is_published` BOOLEAN DEFAULT FALSE COMMENT '是否发布',
+    `publish_at` DATETIME DEFAULT NULL COMMENT '发布时间',
+    `expire_at` DATETIME DEFAULT NULL COMMENT '过期时间',
+    `view_count` INT DEFAULT 0 COMMENT '浏览次数',
+    `created_at` DATETIME NOT NULL COMMENT '创建时间',
+    `updated_at` DATETIME DEFAULT NULL COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_author_id` (`author_id`),
+    KEY `idx_type` (`type`),
+    KEY `idx_priority` (`priority`),
+    KEY `idx_is_published` (`is_published`),
+    KEY `idx_publish_at` (`publish_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='公告表';
+
+-- =============================================
+-- 6. 公告阅读记录表 (announcement_reads)
+-- =============================================
+CREATE TABLE IF NOT EXISTS `announcement_reads` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '记录ID',
+    `announcement_id` BIGINT NOT NULL COMMENT '公告ID',
+    `user_id` BIGINT NOT NULL COMMENT '用户ID',
+    `read_at` DATETIME NOT NULL COMMENT '阅读时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_announcement_user` (`announcement_id`, `user_id`),
+    KEY `idx_user_id` (`user_id`),
+    KEY `idx_read_at` (`read_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='公告阅读记录表';
+
+-- =============================================
+-- 7. 禁用用户表 (banned_users)
+-- =============================================
+CREATE TABLE IF NOT EXISTS `banned_users` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '禁用记录ID',
+    `user_id` BIGINT NOT NULL COMMENT '被禁用用户ID',
+    `banned_by` BIGINT NOT NULL COMMENT '操作者ID',
+    `reason` VARCHAR(500) DEFAULT NULL COMMENT '禁用原因',
+    `type` VARCHAR(20) DEFAULT 'TEMPORARY' COMMENT '禁用类型: PERMANENT/TEMPORARY/WARNING',
+    `end_time` DATETIME DEFAULT NULL COMMENT '结束时间',
+    `active` BOOLEAN DEFAULT TRUE COMMENT '是否生效',
+    `created_at` DATETIME NOT NULL COMMENT '创建时间',
+    `updated_at` DATETIME DEFAULT NULL COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_user_id` (`user_id`),
+    KEY `idx_banned_by` (`banned_by`),
+    KEY `idx_active` (`active`),
+    KEY `idx_end_time` (`end_time`),
+    CONSTRAINT `fk_banned_users_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
+    CONSTRAINT `fk_banned_users_banned_by` FOREIGN KEY (`banned_by`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='禁用用户表';
+
+-- =============================================
+-- 8. 举报表 (reports)
+-- =============================================
+CREATE TABLE IF NOT EXISTS `reports` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '举报ID',
+    `reporter_id` BIGINT NOT NULL COMMENT '举报人ID',
+    `reported_user_id` BIGINT DEFAULT NULL COMMENT '被举报用户ID',
+    `reported_room_id` BIGINT DEFAULT NULL COMMENT '被举报聊天室ID',
+    `reported_message_id` BIGINT DEFAULT NULL COMMENT '被举报消息ID',
+    `type` VARCHAR(30) NOT NULL COMMENT '举报类型: SPAM/HARASSMENT/INAPPROPRIATE_CONTENT/VIOLENCE/FRAUD/OTHER',
+    `target_type` VARCHAR(20) NOT NULL COMMENT '目标类型: USER/ROOM/MESSAGE',
+    `reason` VARCHAR(1000) DEFAULT NULL COMMENT '举报原因',
+    `description` TEXT DEFAULT NULL COMMENT '详细描述',
+    `status` VARCHAR(20) DEFAULT 'PENDING' COMMENT '状态: PENDING/PROCESSING/RESOLVED/REJECTED',
+    `handler_id` BIGINT DEFAULT NULL COMMENT '处理人ID',
+    `handle_result` VARCHAR(500) DEFAULT NULL COMMENT '处理结果',
+    `handled_at` DATETIME DEFAULT NULL COMMENT '处理时间',
+    `created_at` DATETIME NOT NULL COMMENT '创建时间',
+    `updated_at` DATETIME DEFAULT NULL COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_reporter_id` (`reporter_id`),
+    KEY `idx_reported_user_id` (`reported_user_id`),
+    KEY `idx_reported_room_id` (`reported_room_id`),
+    KEY `idx_status` (`status`),
+    KEY `idx_target_type` (`target_type`),
+    KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='举报表';
+
+-- =============================================
+-- 10. 系统日志表 (system_logs)
+-- =============================================
+CREATE TABLE IF NOT EXISTS `system_logs` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '日志ID',
+    `action` VARCHAR(100) NOT NULL COMMENT '操作',
+    `entity_type` VARCHAR(50) DEFAULT NULL COMMENT '实体类型',
+    `entity_id` BIGINT DEFAULT NULL COMMENT '实体ID',
+    `operator_id` BIGINT DEFAULT NULL COMMENT '操作者ID',
+    `target_user_id` BIGINT DEFAULT NULL COMMENT '目标用户ID',
+    `details` TEXT DEFAULT NULL COMMENT '详细信息',
+    `ip_address` VARCHAR(50) DEFAULT NULL COMMENT 'IP地址',
+    `level` VARCHAR(20) DEFAULT 'INFO' COMMENT '日志级别: INFO/WARNING/ERROR/CRITICAL',
+    `created_at` DATETIME NOT NULL COMMENT '创建时间',
+    `updated_at` DATETIME DEFAULT NULL COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_operator_id` (`operator_id`),
+    KEY `idx_target_user_id` (`target_user_id`),
+    KEY `idx_action` (`action`),
+    KEY `idx_entity_type` (`entity_type`),
+    KEY `idx_level` (`level`),
+    KEY `idx_created_at` (`created_at`),
+    CONSTRAINT `fk_system_logs_operator` FOREIGN KEY (`operator_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统日志表';
+
+-- =============================================
+-- 11. 邮箱验证表 (email_verifications)
+-- =============================================
+CREATE TABLE IF NOT EXISTS `email_verifications` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '验证ID',
+    `email` VARCHAR(100) NOT NULL COMMENT '邮箱地址',
+    `code` VARCHAR(10) NOT NULL COMMENT '验证码',
+    `type` VARCHAR(20) NOT NULL COMMENT '验证类型: REGISTER/RESET_PASSWORD/CHANGE_EMAIL',
+    `expires_at` DATETIME NOT NULL COMMENT '过期时间',
+    `used` BOOLEAN DEFAULT FALSE COMMENT '是否已使用',
+    `created_at` DATETIME NOT NULL COMMENT '创建时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_email` (`email`),
+    KEY `idx_code` (`code`),
+    KEY `idx_type` (`type`),
+    KEY `idx_expires_at` (`expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='邮箱验证表';
+
+-- =============================================
+-- 12. 邮件发送日志表 (email_send_logs)
+-- =============================================
+CREATE TABLE IF NOT EXISTS `email_send_logs` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '日志ID',
+    `email` VARCHAR(100) NOT NULL COMMENT '邮箱地址',
+    `type` VARCHAR(30) DEFAULT NULL COMMENT '邮件类型',
+    `send_date` DATE NOT NULL COMMENT '发送日期',
+    `send_count` INT DEFAULT 1 COMMENT '发送次数',
+    `created_at` DATETIME NOT NULL COMMENT '创建时间',
+    `updated_at` DATETIME DEFAULT NULL COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_email_date_type` (`email`, `send_date`, `type`),
+    KEY `idx_send_date` (`send_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='邮件发送日志表';
+
+-- =============================================
+-- 初始化数据
+-- =============================================
+
+-- 插入默认管理员用户 (用户名: admin, 密码: admin123)
+-- 注意: 实际使用时应该使用BCrypt加密的密码
+INSERT INTO `users` (`username`, `password`, `nickname`, `email`, `status`, `role`, `created_at`, `updated_at`)
+VALUES ('admin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '系统管理员', 'admin@example.com', 'OFFLINE', 'ADMIN', NOW(), NOW())
+ON DUPLICATE KEY UPDATE `username` = `username`;
+
+-- 插入测试用户 (用户名: test, 密码: test123)
+INSERT INTO `users` (`username`, `password`, `nickname`, `email`, `status`, `role`, `created_at`, `updated_at`)
+VALUES ('test', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '测试用户', 'test@example.com', 'OFFLINE', 'USER', NOW(), NOW())
+ON DUPLICATE KEY UPDATE `username` = `username`;
+
+-- 插入系统公告
+INSERT INTO `announcements` (`title`, `content`, `type`, `priority`, `author_id`, `is_published`, `publish_at`, `view_count`, `created_at`, `updated_at`)
+VALUES ('欢迎使用聊天室系统', '欢迎来到我们的聊天室系统！请遵守社区规则，文明交流。', 'NORMAL', 'NORMAL', 1, TRUE, NOW(), 0, NOW(), NOW())
+ON DUPLICATE KEY UPDATE `title` = `title`;
+
+-- =============================================
+-- 脚本执行完成
+-- =============================================
