@@ -13,10 +13,23 @@
 
 ### 连接地址
 
+**原生 WebSocket**：
+
 | 环境 | 地址 |
 |------|------|
-| 开发环境 | `ws://localhost:8080/ws` |
-| 生产环境 | `wss://your-domain.com/ws` |
+| 开发环境 | `ws://localhost:8080/api/ws` |
+| 生产环境 | `wss://your-domain.com/api/ws` |
+
+**SockJS（推荐）**：
+
+| 环境 | 地址 |
+|------|------|
+| 开发环境 | `http://localhost:8080/api/ws` |
+| 生产环境 | `https://your-domain.com/api/ws` |
+
+> **注意**：由于服务器配置了 `context-path: /api`，所有端点都需要加上 `/api` 前缀。SockJS 不支持 `ws://` 协议，必须使用 `http://` 或 `https://`。
+
+> **注意**：SockJS 不支持 `ws://` 协议，必须使用 `http://` 或 `https://`，SockJS 会自动处理 WebSocket 升级。
 
 ### 认证说明
 
