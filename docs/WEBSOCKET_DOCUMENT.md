@@ -440,6 +440,7 @@ stompClient.subscribe('/user/queue/private', function(message) {
 **请求体**:
 ```json
 {
+    "roomId": 100,
     "content": "大家好！",
     "type": "TEXT"
 }
@@ -448,6 +449,7 @@ stompClient.subscribe('/user/queue/private', function(message) {
 **示例**:
 ```javascript
 stompClient.send('/app/chat.send.100', {}, JSON.stringify({
+    roomId: 100,
     content: '大家好！',
     type: 'TEXT'
 }));
@@ -457,6 +459,7 @@ stompClient.send('/app/chat.send.100', {}, JSON.stringify({
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
+| roomId | Long | 是 | 聊天室ID |
 | content | String | 是 | 消息内容 |
 | type | String | 否 | 消息类型，默认 TEXT |
 
@@ -561,7 +564,27 @@ stompClient.send('/app/user.status', {}, JSON.stringify({
 }));
 ```
 
+**请求参数说明**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| status | String | 是 | 用户状态（ONLINE/OFFLINE/BUSY/AWAY） |
+
+**服务器处理流程**：
+
+1. 验证用户身份（从 Session 获取）
+2. 更新用户心跳时间
+3. 更新数据库中的用户状态
+4. 向 `/topic/user.status` 广播状态更新
+
 **服务器响应**: 向 `/topic/user.status` 广播状态更新
+
+```json
+{
+    "userId": 123,
+    "status": "BUSY"
+}
+```
 
 ---
 
@@ -849,14 +872,59 @@ function connect() {
 
 ### 9.3 错误处理最佳实践
 
+#### 9.3.1 客户端错误处理
+
 ```javascript
-stompClient.subscribe('/user/queue/errors', function(message) {
-    const error = JSON.parse(message.body);
-    console.error('WebSocket Error:', error);
-    
-    // 显示错误提示
-    showNotification(error.message, 'error');
-});
+class ChatClient {
+    constructor(token) {
+        this.token = token;
+        this.stompClient = null;
+        this.reconnectAttempts = 0;
+        this.maxReconnectAttempts = 5;
+    }
+
+    connect() {
+        const socket = new SockJS('http://localhost:8080/ws');
+        this.stompClient = Stomp.over(socket);
+
+        const headers = {
+            'Authorization': 'Bearer ' + this.token
+        };
+
+        this.stompClient.connect(
+            headers,
+            this.onConnect.bind(this),
+            this.onError.bind(this)
+        );
+    }
+
+    onConnect(frame) {
+        console.log('Connected:', frame);
+        this.reconnectAttempts = 0;
+        this.subscribeToTopics();
+    }
+
+    onError(error) {
+        console.error('Connection error:', error);
+        
+        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+            this.reconnectAttempts++;
+            const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
+            console.log(`Reconnecting in ${delay}ms... (attempt ${this.reconnectAttempts})`);
+            setTimeout(() => this.connect(), delay);
+        } else {
+            console.error('Max reconnection attempts reached');
+            this.handleConnectionLost();
+        }
+    }
+
+    handleConnectionLost() {
+        // 显示连接丢失提示
+        showNotification('连接已断开，请刷新页面重试', 'error');
+        // 禁用发送功能
+        disableSendButton();
+    }
+}
 
 // 全局错误处理
 stompClient.onreceive = function(frame) {
@@ -864,6 +932,132 @@ stompClient.onreceive = function(frame) {
         handleStompError(frame);
     }
 };
+
+function handleStompError(frame) {
+    const errorMessage = frame.headers.message;
+    const errorBody = frame.body;
+
+    console.error('STOMP Error:', errorMessage, errorBody);
+
+    switch (errorMessage) {
+        case 'Unauthorized':
+            showNotification('认证失败，请重新登录', 'error');
+            redirectToLogin();
+            break;
+        case 'Forbidden':
+            showNotification('权限不足', 'warning');
+            break;
+        default:
+            showNotification('发生错误: ' + errorMessage, 'error');
+    }
+}
+```
+
+#### 9.3.2 错误重试策略
+
+```javascript
+class MessageSender {
+    constructor(stompClient) {
+        this.stompClient = stompClient;
+        this.pendingMessages = [];
+        this.maxRetries = 3;
+    }
+
+    sendWithRetry(destination, body, retries = 0) {
+        try {
+            this.stompClient.send(destination, {}, body);
+            return Promise.resolve();
+        } catch (error) {
+            if (retries < this.maxRetries) {
+                console.log(`Retrying message send (${retries + 1}/${this.maxRetries})`);
+                return new Promise((resolve, reject) => {
+                    setTimeout(() => {
+                        this.sendWithRetry(destination, body, retries + 1)
+                            .then(resolve)
+                            .catch(reject);
+                    }, 1000 * (retries + 1));
+                });
+            } else {
+                console.error('Failed to send message after retries:', error);
+                return Promise.reject(error);
+            }
+        }
+    }
+
+    sendPendingMessages() {
+        this.pendingMessages.forEach(msg => {
+            this.sendWithRetry(msg.destination, msg.body)
+                .catch(err => console.error('Failed to send pending message:', err));
+        });
+        this.pendingMessages = [];
+    }
+}
+```
+
+#### 9.3.3 网络状态监听
+
+```javascript
+class NetworkMonitor {
+    constructor(chatClient) {
+        this.chatClient = chatClient;
+        this.isOnline = navigator.onLine;
+        this.initListeners();
+    }
+
+    initListeners() {
+        window.addEventListener('online', () => {
+            console.log('Network is online');
+            this.isOnline = true;
+            this.chatClient.connect();
+        });
+
+        window.addEventListener('offline', () => {
+            console.log('Network is offline');
+            this.isOnline = false;
+            showNotification('网络连接已断开', 'warning');
+        });
+    }
+
+    checkConnection() {
+        if (!this.isOnline) {
+            throw new Error('Network is offline');
+        }
+    }
+}
+```
+
+#### 9.3.4 消息去重
+
+```javascript
+class MessageDeduplicator {
+    constructor() {
+        this.receivedMessages = new Set();
+        this.maxCacheSize = 1000;
+    }
+
+    shouldProcess(message) {
+        const messageId = message.id;
+        
+        if (!messageId) {
+            return true; // 系统消息没有ID，直接处理
+        }
+
+        if (this.receivedMessages.has(messageId)) {
+            console.log('Duplicate message ignored:', messageId);
+            return false;
+        }
+
+        this.receivedMessages.add(messageId);
+
+        // 限制缓存大小
+        if (this.receivedMessages.size > this.maxCacheSize) {
+            const oldest = this.receivedMessages.values().next().value;
+            this.receivedMessages.delete(oldest);
+        }
+
+        return true;
+    }
+}
 ```
 
 ---
@@ -1313,11 +1507,686 @@ export default ChatRoom;
 3. **输入验证**: 客户端和服务端都要验证消息内容
 4. **限流控制**: 防止消息刷屏
 
+### 11.6 性能优化详细方案
+
+#### 11.6.1 消息节流
+
+```javascript
+class TypingThrottler {
+    constructor(stompClient, roomId) {
+        this.stompClient = stompClient;
+        this.roomId = roomId;
+        this.lastSent = 0;
+        this.throttleDelay = 1000; // 1秒内只发送一次
+    }
+
+    sendTyping() {
+        const now = Date.now();
+        if (now - this.lastSent > this.throttleDelay) {
+            this.stompClient.send(`/app/chat.typing.${this.roomId}`, {}, '');
+            this.lastSent = now;
+        }
+    }
+}
+```
+
+#### 11.6.2 虚拟列表
+
+```javascript
+class VirtualList {
+    constructor(container, itemHeight, buffer = 5) {
+        this.container = container;
+        this.itemHeight = itemHeight;
+        this.buffer = buffer;
+        this.visibleStart = 0;
+        this.visibleEnd = 0;
+        this.init();
+    }
+
+    init() {
+        this.container.addEventListener('scroll', () => {
+            this.updateVisibleRange();
+        });
+        this.updateVisibleRange();
+    }
+
+    updateVisibleRange() {
+        const scrollTop = this.container.scrollTop;
+        const containerHeight = this.container.clientHeight;
+        
+        this.visibleStart = Math.max(0, Math.floor(scrollTop / this.itemHeight) - this.buffer);
+        this.visibleEnd = Math.min(
+            this.totalItems - 1,
+            Math.ceil((scrollTop + containerHeight) / this.itemHeight) + this.buffer
+        );
+        
+        this.render();
+    }
+
+    render() {
+        const visibleItems = this.items.slice(this.visibleStart, this.visibleEnd + 1);
+        this.container.innerHTML = visibleItems.map(item => this.renderItem(item)).join('');
+    }
+}
+```
+
+#### 11.6.3 消息分页加载
+
+```javascript
+class MessagePagination {
+    constructor(messageService, pageSize = 50) {
+        this.messageService = messageService;
+        this.pageSize = pageSize;
+        this.currentPage = 0;
+        this.hasMore = true;
+        this.loading = false;
+    }
+
+    async loadMore(roomId) {
+        if (this.loading || !this.hasMore) return;
+
+        this.loading = true;
+        try {
+            const messages = await this.messageService.getMessages(
+                roomId,
+                this.currentPage * this.pageSize,
+                this.pageSize
+            );
+
+            if (messages.length < this.pageSize) {
+                this.hasMore = false;
+            }
+
+            this.currentPage++;
+            return messages;
+        } finally {
+            this.loading = false;
+        }
+    }
+
+    reset() {
+        this.currentPage = 0;
+        this.hasMore = true;
+        this.loading = false;
+    }
+}
+```
+
+### 11.7 调试技巧
+
+#### 11.7.1 启用STOMP调试
+
+```javascript
+const stompClient = Stomp.over(socket);
+stompClient.debug = function(str) {
+    console.log('STOMP:', str);
+};
+```
+
+#### 11.7.2 消息追踪
+
+```javascript
+class MessageTracker {
+    constructor() {
+        this.sentMessages = new Map();
+        this.receivedMessages = new Map();
+    }
+
+    trackSent(message) {
+        const id = this.generateId();
+        this.sentMessages.set(id, {
+            message,
+            timestamp: Date.now(),
+            status: 'sent'
+        });
+        return id;
+    }
+
+    trackReceived(message) {
+        const id = message.id;
+        if (this.sentMessages.has(id)) {
+            const sent = this.sentMessages.get(id);
+            sent.status = 'delivered';
+            sent.deliveryTime = Date.now() - sent.timestamp;
+        }
+        this.receivedMessages.set(id, message);
+    }
+
+    generateId() {
+        return Date.now().toString(36) + Math.random().toString(36).substr(2);
+    }
+
+    getStats() {
+        return {
+            sent: this.sentMessages.size,
+            received: this.receivedMessages.size,
+            avgDeliveryTime: this.calculateAvgDeliveryTime()
+        };
+    }
+
+    calculateAvgDeliveryTime() {
+        const delivered = Array.from(this.sentMessages.values())
+            .filter(msg => msg.status === 'delivered');
+        
+        if (delivered.length === 0) return 0;
+        
+        const totalTime = delivered.reduce((sum, msg) => sum + msg.deliveryTime, 0);
+        return totalTime / delivered.length;
+    }
+}
+```
+
+### 11.8 测试策略
+
+#### 11.8.1 单元测试
+
+```javascript
+describe('ChatClient', () => {
+    let chatClient;
+    let mockStompClient;
+
+    beforeEach(() => {
+        mockStompClient = {
+            connect: jest.fn(),
+            send: jest.fn(),
+            subscribe: jest.fn(),
+            disconnect: jest.fn()
+        };
+        chatClient = new ChatClient('test-token');
+        chatClient.stompClient = mockStompClient;
+    });
+
+    test('should connect with correct headers', () => {
+        chatClient.connect();
+        expect(mockStompClient.connect).toHaveBeenCalledWith(
+            { 'Authorization': 'Bearer test-token' },
+            expect.any(Function),
+            expect.any(Function)
+        );
+    });
+
+    test('should send message to correct destination', () => {
+        chatClient.sendMessage(100, 'Hello', 'TEXT');
+        expect(mockStompClient.send).toHaveBeenCalledWith(
+            '/app/chat.send.100',
+            {},
+            JSON.stringify({ roomId: 100, content: 'Hello', type: 'TEXT' })
+        );
+    });
+});
+```
+
+#### 11.8.2 集成测试
+
+```javascript
+describe('WebSocket Integration', () => {
+    let server;
+    let client;
+
+    beforeAll(async () => {
+        server = await startTestServer();
+    });
+
+    afterAll(async () => {
+        await server.close();
+    });
+
+    test('should receive messages in real-time', (done) => {
+        client = new ChatClient('test-token');
+        
+        client.onMessage = (message) => {
+            expect(message.content).toBe('Test message');
+            done();
+        };
+
+        client.connect().then(() => {
+            client.sendMessage(1, 'Test message', 'TEXT');
+        });
+    });
+});
+```
+
 ---
 
 ## 附录
 
-### A. STOMP 命令参考
+### A. WebSocket API 接口参考
+
+#### A.1 客户端发送接口
+
+##### A.1.1 发送聊天消息
+
+**接口**: `SEND /app/chat.send.{roomId}`
+
+**描述**: 向指定聊天室发送消息
+
+**请求头**:
+```
+Authorization: Bearer {token}
+```
+
+**请求体**:
+```json
+{
+    "roomId": 100,
+    "content": "大家好！",
+    "type": "TEXT"
+}
+```
+
+**请求参数**:
+
+| 参数 | 类型 | 必填 | 说明 | 约束 |
+|------|------|------|------|------|
+| roomId | Long | 是 | 聊天室ID | 必须存在且用户已加入 |
+| content | String | 是 | 消息内容 | 不能为空，最大5000字符 |
+| type | String | 否 | 消息类型 | TEXT/IMAGE/FILE/EMOJI，默认TEXT |
+
+**响应**: 无直接响应，消息会广播到 `/topic/room.{roomId}`
+
+**广播消息格式**:
+```json
+{
+    "id": 1,
+    "roomId": 100,
+    "senderId": 123,
+    "senderName": "张三",
+    "senderAvatar": "https://example.com/avatar.jpg",
+    "content": "大家好！",
+    "type": "TEXT",
+    "createdAt": "2024-01-20T10:30:00"
+}
+```
+
+**错误处理**:
+- 未授权：静默失败，记录警告日志
+- 不在聊天室：静默失败，记录警告日志
+- 消息保存失败：记录错误日志
+
+---
+
+##### A.1.2 加入聊天室
+
+**接口**: `SEND /app/chat.join.{roomId}`
+
+**描述**: 通知其他用户当前用户加入聊天室
+
+**请求头**:
+```
+Authorization: Bearer {token}
+```
+
+**请求体**: 无（空字符串）
+
+**响应**: 无直接响应，系统消息会广播到 `/topic/room.{roomId}`
+
+**广播消息格式**:
+```json
+{
+    "id": null,
+    "roomId": 100,
+    "senderId": 0,
+    "senderName": "System",
+    "content": "张三 joined the room",
+    "type": "SYSTEM",
+    "createdAt": "2024-01-20T10:32:00"
+}
+```
+
+**注意事项**:
+- 发送此消息前应先通过HTTP API加入聊天室
+- 此消息仅用于通知其他用户
+
+---
+
+##### A.1.3 离开聊天室
+
+**接口**: `SEND /app/chat.leave.{roomId}`
+
+**描述**: 通知其他用户当前用户离开聊天室
+
+**请求头**:
+```
+Authorization: Bearer {token}
+```
+
+**请求体**: 无（空字符串）
+
+**响应**: 无直接响应，系统消息会广播到 `/topic/room.{roomId}`
+
+**广播消息格式**:
+```json
+{
+    "id": null,
+    "roomId": 100,
+    "senderId": 0,
+    "senderName": "System",
+    "content": "张三 left the room",
+    "type": "SYSTEM",
+    "createdAt": "2024-01-20T10:35:00"
+}
+```
+
+**注意事项**:
+- 发送此消息前应先通过HTTP API离开聊天室
+- 此消息仅用于通知其他用户
+
+---
+
+##### A.1.4 发送输入状态
+
+**接口**: `SEND /app/chat.typing.{roomId}`
+
+**描述**: 通知其他用户当前用户正在输入
+
+**请求头**:
+```
+Authorization: Bearer {token}
+```
+
+**请求体**: 无（空字符串）
+
+**响应**: 无直接响应，输入状态会广播到 `/topic/room.{roomId}.typing`
+
+**广播消息格式**:
+```json
+{
+    "userId": 123,
+    "username": "张三",
+    "typing": true
+}
+```
+
+**最佳实践**:
+- 使用节流（throttle）控制发送频率
+- 停止输入3秒后自动清除状态
+
+---
+
+##### A.1.5 更新用户状态
+
+**接口**: `SEND /app/user.status`
+
+**描述**: 更新当前用户的状态
+
+**请求头**:
+```
+Authorization: Bearer {token}
+```
+
+**请求体**:
+```json
+{
+    "status": "BUSY"
+}
+```
+
+**请求参数**:
+
+| 参数 | 类型 | 必填 | 说明 | 可选值 |
+|------|------|------|------|--------|
+| status | String | 是 | 用户状态 | ONLINE/OFFLINE/BUSY/AWAY |
+
+**响应**: 无直接响应，状态更新会广播到 `/topic/user.status`
+
+**广播消息格式**:
+```json
+{
+    "userId": 123,
+    "status": "BUSY"
+}
+```
+
+---
+
+##### A.1.6 发送心跳
+
+**接口**: `SEND /app/heartbeat`
+
+**描述**: 发送心跳包保持连接活跃
+
+**请求头**:
+```
+Authorization: Bearer {token}
+```
+
+**请求体**: 无（空字符串）
+
+**响应**: 无直接响应
+
+**说明**:
+- 建议每30秒发送一次
+- 任何消息发送都会自动更新心跳时间
+- 心跳超时90秒后用户会被标记为离线
+
+---
+
+#### A.2 客户端订阅接口
+
+##### A.2.1 订阅聊天室消息
+
+**接口**: `SUBSCRIBE /topic/room.{roomId}`
+
+**描述**: 接收指定聊天室的所有消息
+
+**订阅示例**:
+```javascript
+stompClient.subscribe('/topic/room.100', function(message) {
+    const msg = JSON.parse(message.body);
+    console.log('收到消息:', msg);
+});
+```
+
+**消息格式**:
+```json
+{
+    "id": 1,
+    "roomId": 100,
+    "senderId": 123,
+    "senderName": "张三",
+    "senderAvatar": "https://example.com/avatar.jpg",
+    "content": "大家好！",
+    "type": "TEXT",
+    "createdAt": "2024-01-20T10:30:00"
+}
+```
+
+**消息字段说明**:
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Long | 消息ID，系统消息为null |
+| roomId | Long | 聊天室ID |
+| senderId | Long | 发送者ID，系统消息为0 |
+| senderName | String | 发送者昵称 |
+| senderAvatar | String | 发送者头像URL |
+| content | String | 消息内容 |
+| type | String | 消息类型 |
+| createdAt | DateTime | 消息创建时间 |
+
+---
+
+##### A.2.2 订阅输入状态
+
+**接口**: `SUBSCRIBE /topic/room.{roomId}.typing`
+
+**描述**: 接收聊天室内用户的输入状态
+
+**订阅示例**:
+```javascript
+stompClient.subscribe('/topic/room.100.typing', function(message) {
+    const data = JSON.parse(message.body);
+    console.log(data.username + ' 正在输入...');
+});
+```
+
+**消息格式**:
+```json
+{
+    "userId": 123,
+    "username": "张三",
+    "typing": true
+}
+```
+
+**最佳实践**:
+- 显示3秒后自动清除输入提示
+- 多人输入时显示"多人正在输入..."
+
+---
+
+##### A.2.3 订阅用户状态
+
+**接口**: `SUBSCRIBE /topic/user.status`
+
+**描述**: 接收所有用户的在线状态变化
+
+**订阅示例**:
+```javascript
+stompClient.subscribe('/topic/user.status', function(message) {
+    const data = JSON.parse(message.body);
+    console.log('用户 ' + data.username + ' 状态: ' + data.status);
+});
+```
+
+**消息格式**:
+```json
+{
+    "userId": 123,
+    "username": "张三",
+    "status": "ONLINE"
+}
+```
+
+**状态类型**:
+
+| 状态 | 说明 |
+|------|------|
+| ONLINE | 在线 |
+| OFFLINE | 离线 |
+| BUSY | 忙碌 |
+| AWAY | 离开 |
+
+---
+
+##### A.2.4 订阅私有消息
+
+**接口**: `SUBSCRIBE /user/queue/private`
+
+**描述**: 接收当前用户的私有消息（如系统通知、私信等）
+
+**订阅示例**:
+```javascript
+stompClient.subscribe('/user/queue/private', function(message) {
+    const notification = JSON.parse(message.body);
+    console.log('收到私有消息:', notification);
+});
+```
+
+**注意**: 此接口当前未实现，预留用于未来扩展
+
+---
+
+#### A.3 服务器事件
+
+##### A.3.1 连接建立事件
+
+**事件**: `SessionConnectedEvent`
+
+**触发时机**: 客户端成功建立WebSocket连接
+
+**服务器处理**:
+1. 从STOMP CONNECT帧获取用户信息
+2. 验证JWT Token
+3. 将用户ID存储到Session映射
+4. 初始化用户心跳时间
+5. 更新用户状态为ONLINE
+6. 向 `/topic/user.status` 广播用户上线
+
+**广播消息格式**:
+```json
+{
+    "userId": 123,
+    "username": "张三",
+    "status": "ONLINE"
+}
+```
+
+---
+
+##### A.3.2 连接断开事件
+
+**事件**: `SessionDisconnectEvent`
+
+**触发时机**: 客户端断开WebSocket连接
+
+**服务器处理**:
+1. 从Session映射中移除用户
+2. 从心跳映射中移除用户
+3. 更新用户状态为OFFLINE
+4. 向 `/topic/user.status` 广播用户离线
+
+**广播消息格式**:
+```json
+{
+    "userId": 123,
+    "username": "张三",
+    "status": "OFFLINE"
+}
+```
+
+---
+
+##### A.3.3 心跳超时事件
+
+**事件**: `@Scheduled(fixedRate = 60000)`
+
+**触发时机**: 每60秒检查一次心跳超时
+
+**服务器处理**:
+1. 遍历所有用户的心跳时间
+2. 超过90秒未收到心跳的用户标记为离线
+3. 更新数据库中的用户状态
+4. 向 `/topic/user.status` 广播离线状态
+5. 从心跳映射中移除该用户
+
+---
+
+#### A.4 消息类型定义
+
+##### A.4.1 消息类型枚举
+
+| 类型 | 值 | 说明 |
+|------|------|------|
+| 文本消息 | TEXT | 普通文本消息 |
+| 图片消息 | IMAGE | 图片URL消息 |
+| 文件消息 | FILE | 文件URL消息 |
+| 系统消息 | SYSTEM | 系统通知消息 |
+| 表情消息 | EMOJI | 表情符号消息 |
+
+##### A.4.2 用户状态枚举
+
+| 状态 | 值 | 说明 |
+|------|------|------|
+| 在线 | ONLINE | 用户在线 |
+| 离线 | OFFLINE | 用户离线 |
+| 忙碌 | BUSY | 用户忙碌 |
+| 离开 | AWAY | 用户暂时离开 |
+
+---
+
+#### A.5 错误码参考
+
+| 错误类型 | HTTP状态码 | 说明 | 处理建议 |
+|---------|------------|------|----------|
+| Unauthorized | 401 | Token无效或已过期 | 重新登录获取新Token |
+| Forbidden | 403 | 权限不足 | 检查用户权限 |
+| Bad Request | 400 | 请求参数错误 | 检查请求参数 |
+| Internal Server Error | 500 | 服务器内部错误 | 稍后重试或联系管理员 |
+
+---
+
+### B. STOMP 命令参考
 
 | 命令 | 说明 | 方向 |
 |------|------|------|
@@ -1348,5 +2217,5 @@ export default ChatRoom;
 
 ---
 
-*文档版本: 1.0.0*
-*最后更新: 2024年1月*
+*文档版本: 1.1.0*
+*最后更新: 2026年3月*
