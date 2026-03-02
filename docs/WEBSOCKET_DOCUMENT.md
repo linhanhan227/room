@@ -2200,7 +2200,7 @@ stompClient.subscribe('/user/queue/private', function(message) {
 | ERROR | 错误 | Server → Client |
 | DISCONNECT | 断开连接 | Client → Server |
 
-### B. 常用库推荐
+### C. 常用库推荐
 
 | 平台 | 库名 | 安装命令 |
 |------|------|----------|
@@ -2210,7 +2210,7 @@ stompClient.subscribe('/user/queue/private', function(message) {
 | iOS | StompClientLib | Pod 依赖 |
 | Java | spring-websocket | Maven 依赖 |
 
-### C. 调试工具
+### D. 调试工具
 
 1. **浏览器开发者工具**: Network → WS 标签
 2. **WebSocket King Client**: 图形化 WebSocket 客户端
