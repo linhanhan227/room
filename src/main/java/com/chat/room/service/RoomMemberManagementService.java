@@ -249,4 +249,26 @@ public class RoomMemberManagementService {
                 })
                 .collect(Collectors.toList());
     }
+
+    @Transactional
+    public void setMemberRole(Long roomId, Long userId, RoomMember.MemberRole role) {
+        User currentUser = getCurrentUser();
+        ChatRoom room = chatRoomRepository.findById(roomId)
+                .orElseThrow(() -> new ResourceNotFoundException("Room", roomId));
+
+        if (!isSystemAdmin(currentUser) && !room.getOwner().getId().equals(currentUser.getId())) {
+            throw new ForbiddenException("只有聊天室所有者或系统管理员可以设置成员角色");
+        }
+
+        RoomMember targetMember = getRoomMember(roomId, userId);
+
+        if (targetMember.getRole() == RoomMember.MemberRole.OWNER) {
+            throw new BusinessException("不能修改聊天室所有者的角色");
+        }
+
+        targetMember.setRole(role);
+        roomMemberRepository.save(targetMember);
+
+        log.info("User {} set role {} for user {} in room {}", currentUser.getId(), role, userId, roomId);
+    }
 }

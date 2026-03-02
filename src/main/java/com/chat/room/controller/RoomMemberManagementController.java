@@ -5,6 +5,7 @@ import com.chat.room.dto.BlacklistMemberDTO;
 import com.chat.room.dto.BlacklistMemberRequest;
 import com.chat.room.dto.MuteMemberRequest;
 import com.chat.room.dto.UserDTO;
+import com.chat.room.entity.RoomMember;
 import com.chat.room.service.RoomMemberManagementService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -72,5 +73,14 @@ public class RoomMemberManagementController {
             @PathVariable Long roomId) {
         List<UserDTO> members = roomMemberManagementService.getRoomMembers(roomId);
         return ResponseEntity.ok(ApiResponse.success(members));
+    }
+
+    @PutMapping("/{userId}/role")
+    public ResponseEntity<ApiResponse<Void>> setMemberRole(
+            @PathVariable Long roomId,
+            @PathVariable Long userId,
+            @RequestParam RoomMember.MemberRole role) {
+        roomMemberManagementService.setMemberRole(roomId, userId, role);
+        return ResponseEntity.ok(ApiResponse.success("成员角色更新成功", null));
     }
 }

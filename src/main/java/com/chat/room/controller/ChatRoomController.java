@@ -85,32 +85,6 @@ public class ChatRoomController {
         return ResponseEntity.ok(ApiResponse.success(rooms));
     }
 
-    @GetMapping("/{roomId}/members")
-    public ResponseEntity<ApiResponse<List<UserDTO>>> getRoomMembers(@PathVariable Long roomId) {
-        List<User> members = chatRoomService.getRoomMembers(roomId);
-        List<UserDTO> memberDTOs = members.stream()
-                .map(UserDTO::fromEntity)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(ApiResponse.success(memberDTOs));
-    }
-
-    @DeleteMapping("/{roomId}/members/{userId}")
-    public ResponseEntity<ApiResponse<Void>> kickMember(
-            @PathVariable Long roomId,
-            @PathVariable Long userId) {
-        chatRoomService.kickMember(roomId, userId);
-        return ResponseEntity.ok(ApiResponse.success("成员踢出成功", null));
-    }
-
-    @PutMapping("/{roomId}/members/{userId}/role")
-    public ResponseEntity<ApiResponse<Void>> setMemberRole(
-            @PathVariable Long roomId,
-            @PathVariable Long userId,
-            @RequestParam RoomMember.MemberRole role) {
-        chatRoomService.setMemberRole(roomId, userId, role);
-        return ResponseEntity.ok(ApiResponse.success("成员角色更新成功", null));
-    }
-
     @PutMapping("/{roomId}")
     public ResponseEntity<ApiResponse<ChatRoomDTO>> updateRoom(
             @PathVariable Long roomId,

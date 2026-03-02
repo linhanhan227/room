@@ -167,8 +167,9 @@ spring:
     username: your_username
     password: your_password
 
-jwt:
-  secret: your-256-bit-secret-key-for-jwt-token-generation-must-be-long-enough
+app:
+  jwt:
+    secret: your-256-bit-secret-key-for-jwt-token-generation-must-be-long-enough
 
   mail:
     host: smtp.example.com
@@ -176,7 +177,7 @@ jwt:
     password: your-email-password
 ```
 
-4.3. **初始化数据库**
+4. **初始化数据库**
 
 执行 `src/main/resources/db/database_v1.1.0.sql` 脚本初始化数据库表结构。
 
@@ -191,6 +192,30 @@ java -jar target/chatroom.jar
 ```
 
 服务将在 `http://localhost:8080/api` 启动。
+
+### 详细部署指南
+
+完整的部署和运行指南请参考 [DEPLOYMENT.md](./docs/DEPLOYMENT.md)
+
+#### 快速部署命令
+
+```bash
+# 1. 启动MySQL服务
+# Windows
+Start-Service -Name MySQL80
+
+# Linux
+sudo systemctl start mysql
+
+# 2. 初始化数据库
+mysql -u root -p chat_room < src/main/resources/db/database_v1.1.0.sql
+
+# 3. 打包项目
+mvn clean package -DskipTests
+
+# 4. 运行项目
+java -jar target/chatroom.jar
+```
 
 ## API 接口
 
@@ -343,8 +368,13 @@ MIT License
 4. 推送到分支 (`git push origin feature/AmazingFeature`)
 5. 提交 Pull Request
 
-```
- java -jar chatroom.jar --spring.config.location=./application.yaml
- 
- mvn clean package -DskipTests=true  
-```
+## 文档
+
+- [API接口文档](./docs/API_DOCUMENT.md) - 完整的REST API接口文档
+- [WebSocket文档](./docs/WEBSOCKET_DOCUMENT.md) - WebSocket实时通信文档
+- [部署指南](./docs/DEPLOYMENT.md) - 详细的部署和运行指南
+- [更新日志](./CHANGELOG.md) - 版本更新历史
+
+## 许可证
+
+MIT License
