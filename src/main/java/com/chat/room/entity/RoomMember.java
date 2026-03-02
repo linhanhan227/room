@@ -41,6 +41,9 @@ public class RoomMember {
     @Builder.Default
     private Boolean muted = false;
 
+    @Column(name = "muted_until")
+    private LocalDateTime mutedUntil;
+
     @Column(name = "deleted")
     @Builder.Default
     private Boolean deleted = false;

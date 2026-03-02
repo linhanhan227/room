@@ -36,4 +36,7 @@ public interface RoomMemberRepository extends JpaRepository<RoomMember, RoomMemb
 
     @Query("SELECT rm.role FROM RoomMember rm WHERE rm.room.id = :roomId AND rm.user.id = :userId")
     Optional<RoomMember.MemberRole> findRoleByRoomIdAndUserId(@Param("roomId") Long roomId, @Param("userId") Long userId);
+
+    @Query("SELECT rm FROM RoomMember rm WHERE rm.room.id = :roomId AND rm.user.id = :userId")
+    Optional<RoomMember> findMemberByRoomIdAndUserId(@Param("roomId") Long roomId, @Param("userId") Long userId);
 }

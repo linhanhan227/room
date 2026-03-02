@@ -128,8 +128,8 @@ public class ChatRoomService {
         ChatRoom room = chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new ResourceNotFoundException("Room", roomId));
 
-        if (!room.getOwner().getId().equals(user.getId())) {
-            throw new ForbiddenException("只有聊天室所有者可以删除聊天室");
+        if (!room.getOwner().getId().equals(user.getId()) && user.getRole() != User.UserRole.ADMIN) {
+            throw new ForbiddenException("只有聊天室所有者或系统管理员可以删除聊天室");
         }
 
         messageRepository.deleteByRoomId(roomId);
@@ -194,12 +194,14 @@ public class ChatRoomService {
         ChatRoom room = chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new ResourceNotFoundException("Room", roomId));
 
-        RoomMember.MemberRole currentRole = roomMemberRepository
-                .findRoleByRoomIdAndUserId(roomId, currentUser.getId())
-                .orElseThrow(() -> new BusinessException("You are not a member of this room"));
+        if (currentUser.getRole() != User.UserRole.ADMIN) {
+            RoomMember.MemberRole currentRole = roomMemberRepository
+                    .findRoleByRoomIdAndUserId(roomId, currentUser.getId())
+                    .orElseThrow(() -> new BusinessException("You are not a member of this room"));
 
-        if (currentRole != RoomMember.MemberRole.OWNER && currentRole != RoomMember.MemberRole.ADMIN) {
-            throw new ForbiddenException("您没有权限踢出成员");
+            if (currentRole != RoomMember.MemberRole.OWNER && currentRole != RoomMember.MemberRole.ADMIN) {
+                throw new ForbiddenException("您没有权限踢出成员");
+            }
         }
 
         if (room.getOwner().getId().equals(userId)) {
@@ -215,8 +217,8 @@ public class ChatRoomService {
         ChatRoom room = chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new ResourceNotFoundException("Room", roomId));
 
-        if (!room.getOwner().getId().equals(currentUser.getId())) {
-            throw new ForbiddenException("只有聊天室所有者可以修改成员角色");
+        if (!room.getOwner().getId().equals(currentUser.getId()) && currentUser.getRole() != User.UserRole.ADMIN) {
+            throw new ForbiddenException("只有聊天室所有者或系统管理员可以修改成员角色");
         }
 
         RoomMember roomMember = roomMemberRepository.findByRoomIdAndUserId(roomId, userId)
@@ -232,8 +234,8 @@ public class ChatRoomService {
         ChatRoom room = chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new ResourceNotFoundException("Room", roomId));
 
-        if (!room.getOwner().getId().equals(user.getId())) {
-            throw new ForbiddenException("只有聊天室所有者可以更新聊天室");
+        if (!room.getOwner().getId().equals(user.getId()) && user.getRole() != User.UserRole.ADMIN) {
+            throw new ForbiddenException("只有聊天室所有者或系统管理员可以更新聊天室");
         }
 
         if (request.getName() != null && !request.getName().equals(room.getName())) {

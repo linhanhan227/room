@@ -1,7 +1,13 @@
 -- =============================================
--- 聊天室系统数据库初始化脚本
+-- 聊天室系统数据库完整脚本
+-- 版本: v1.1.0
 -- 数据库名: chat_room
 -- 字符集: UTF-8
+-- =============================================
+-- 
+-- 使用说明:
+-- 1. 新建数据库时直接执行此脚本
+-- 2. 从 v1.0.0 升级时，请使用 upgrade_v1.1.0.sql
 -- =============================================
 
 -- =============================================
@@ -58,11 +64,13 @@ CREATE TABLE IF NOT EXISTS `room_members` (
     `role` VARCHAR(20) DEFAULT 'MEMBER' COMMENT '角色: OWNER/ADMIN/MEMBER',
     `last_read_at` DATETIME DEFAULT NULL COMMENT '最后阅读时间',
     `muted` BOOLEAN DEFAULT FALSE COMMENT '是否禁言',
+    `muted_until` DATETIME DEFAULT NULL COMMENT '禁言到期时间',
     `deleted` BOOLEAN DEFAULT FALSE COMMENT '是否删除',
     `joined_at` DATETIME DEFAULT NULL COMMENT '加入时间',
     PRIMARY KEY (`room_id`, `user_id`),
     KEY `idx_user_id` (`user_id`),
     KEY `idx_role` (`role`),
+    KEY `idx_muted_until` (`muted_until`),
     CONSTRAINT `fk_room_members_room` FOREIGN KEY (`room_id`) REFERENCES `chat_rooms` (`id`),
     CONSTRAINT `fk_room_members_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='聊天室成员关联表';
@@ -88,7 +96,28 @@ CREATE TABLE IF NOT EXISTS `messages` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='消息表';
 
 -- =============================================
--- 5. 公告表 (announcements)
+-- 5. 聊天室黑名单表 (room_blacklist)
+-- =============================================
+CREATE TABLE IF NOT EXISTS `room_blacklist` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '黑名单记录ID',
+    `room_id` BIGINT NOT NULL COMMENT '聊天室ID',
+    `user_id` BIGINT NOT NULL COMMENT '被拉黑用户ID',
+    `added_by_id` BIGINT NOT NULL COMMENT '操作者ID',
+    `reason` VARCHAR(500) DEFAULT NULL COMMENT '拉黑原因',
+    `deleted` BOOLEAN DEFAULT FALSE COMMENT '是否删除',
+    `created_at` DATETIME NOT NULL COMMENT '创建时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_room_user` (`room_id`, `user_id`),
+    KEY `idx_room_user` (`room_id`, `user_id`),
+    KEY `idx_user_id` (`user_id`),
+    KEY `idx_room_user_deleted` (`room_id`, `user_id`, `deleted`),
+    CONSTRAINT `fk_room_blacklist_room` FOREIGN KEY (`room_id`) REFERENCES `chat_rooms` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_room_blacklist_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_room_blacklist_added_by` FOREIGN KEY (`added_by_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='聊天室黑名单表';
+
+-- =============================================
+-- 6. 公告表 (announcements)
 -- =============================================
 CREATE TABLE IF NOT EXISTS `announcements` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '公告ID',
@@ -113,7 +142,7 @@ CREATE TABLE IF NOT EXISTS `announcements` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='公告表';
 
 -- =============================================
--- 6. 公告阅读记录表 (announcement_reads)
+-- 7. 公告阅读记录表 (announcement_reads)
 -- =============================================
 CREATE TABLE IF NOT EXISTS `announcement_reads` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '记录ID',
@@ -127,7 +156,7 @@ CREATE TABLE IF NOT EXISTS `announcement_reads` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='公告阅读记录表';
 
 -- =============================================
--- 7. 禁用用户表 (banned_users)
+-- 8. 禁用用户表 (banned_users)
 -- =============================================
 CREATE TABLE IF NOT EXISTS `banned_users` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '禁用记录ID',
@@ -149,7 +178,7 @@ CREATE TABLE IF NOT EXISTS `banned_users` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='禁用用户表';
 
 -- =============================================
--- 8. 举报表 (reports)
+-- 9. 举报表 (reports)
 -- =============================================
 CREATE TABLE IF NOT EXISTS `reports` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '举报ID',
@@ -257,4 +286,16 @@ ON DUPLICATE KEY UPDATE `title` = `title`;
 
 -- =============================================
 -- 脚本执行完成
+-- =============================================
+-- 
+-- 版本: v1.1.0
+-- 更新内容:
+-- 1. 新增 room_members.muted_until 字段（禁言到期时间）
+-- 2. 新增 room_blacklist 表（聊天室黑名单）
+-- 3. 新增相关索引优化查询性能
+-- 
+-- 验证升级:
+-- 1. 检查 room_members 表是否有 muted_until 字段
+-- 2. 检查 room_blacklist 表是否创建成功
+-- 3. 检查外键约束是否正确
 -- =============================================

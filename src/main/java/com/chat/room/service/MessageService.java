@@ -34,6 +34,7 @@ public class MessageService {
     private final UserRepository userRepository;
     private final BannedUserRepository bannedUserRepository;
     private final SensitiveWordService sensitiveWordService;
+    private final RoomMemberManagementService roomMemberManagementService;
 
     @Transactional
     public MessageDTO sendMessage(SendMessageRequest request) {
@@ -48,6 +49,14 @@ public class MessageService {
 
         if (!chatRoomRepository.isUserInRoom(room.getId(), sender.getId())) {
             throw new BusinessException("您不是该聊天室的成员");
+        }
+
+        if (roomMemberManagementService.isUserMuted(request.getRoomId(), sender.getId())) {
+            throw new BusinessException("您已被禁言，无法发送消息");
+        }
+
+        if (roomMemberManagementService.isUserBlacklisted(request.getRoomId(), sender.getId())) {
+            throw new BusinessException("您已被拉黑，无法发送消息");
         }
 
         String content = request.getContent();

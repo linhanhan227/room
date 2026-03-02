@@ -73,10 +73,27 @@ STOMP 提供了比原生 WebSocket 更丰富的功能：
 |------|------|--------|------|
 | heartbeatInterval | Long | 30000 | 心跳间隔（毫秒） |
 | heartbeatTimeout | Long | 90000 | 心跳超时（毫秒） |
-| messageSizeLimit | Integer | 65536 | 消息大小限制（字节） |
-| sendBufferSizeLimit | Integer | 524288 | 发送缓冲区大小（字节） |
+| messageSizeLimit | Integer | 131072 | 消息大小限制（字节，128KB） |
+| sendBufferSizeLimit | Integer | 524288 | 发送缓冲区大小（字节，512KB） |
 | sendTimeLimit | Integer | 20000 | 发送超时（毫秒） |
 | timeToFirstMessage | Integer | 30000 | 首条消息超时（毫秒） |
+
+**配置方式**：
+
+在 `application.yml` 或 `application.properties` 中配置：
+
+```yaml
+app:
+  websocket:
+    endpoint: "/ws"
+    heartbeat-interval: 30000
+    heartbeat-timeout: 90000
+    message-size-limit: 131072
+    send-buffer-size-limit: 524288
+    send-time-limit: 20000
+    time-to-first-message: 30000
+    allowed-origins: "*"
+```
 
 ### 2.3 SockJS 降级支持
 
@@ -155,10 +172,49 @@ stompClient.connect(headers, function(frame) {
 服务器端验证流程：
 
 1. 从 STOMP CONNECT 帧获取 `Authorization` 头
-2. 提取 Bearer Token
+2. 提取 Bearer Token（去掉 "Bearer " 前缀）
 3. 验证 Token 有效性
-4. 解析用户信息
-5. 设置用户身份到 WebSocket Session
+4. 从 Token 解析用户名
+5. 从数据库查询用户信息
+6. 创建 UserPrincipal 并设置到 Session
+
+**服务器代码**：
+
+```java
+@Override
+public Message<?> preSend(Message<?> message, MessageChannel channel) {
+    StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
+
+    if (accessor != null && StompCommand.CONNECT.equals(accessor.getCommand())) {
+        String token = accessor.getFirstNativeHeader("Authorization");
+
+        if (StringUtils.hasText(token) && token.startsWith("Bearer ")) {
+            token = token.substring(7);
+
+            if (tokenProvider.validateToken(token)) {
+                String username = tokenProvider.getUsernameFromToken(token);
+                User user = userRepository.findByUsername(username).orElse(null);
+
+                if (user != null) {
+                    UserPrincipal principal = UserPrincipal.create(user);
+                    Authentication auth = new UsernamePasswordAuthenticationToken(
+                            principal, null, principal.getAuthorities());
+                    accessor.setUser(auth);
+                }
+            }
+        }
+    }
+
+    return message;
+}
+```
+
+**认证拦截器**：
+
+- 拦截器：`WebSocketAuthChannelInterceptor`
+- 拦截时机：CONNECT 命令
+- 认证方式：JWT Bearer Token
+- 用户信息存储：Spring Security Authentication
 
 ### 3.4 认证失败
 
@@ -404,6 +460,21 @@ stompClient.send('/app/chat.send.100', {}, JSON.stringify({
 | content | String | 是 | 消息内容 |
 | type | String | 否 | 消息类型，默认 TEXT |
 
+**服务器处理流程**：
+
+1. 验证用户身份（从 Session 获取）
+2. 检查用户是否在聊天室中
+3. 更新用户心跳时间
+4. 保存消息到数据库
+5. 广播消息到 `/topic/room.{roomId}`
+6. 返回消息对象
+
+**错误处理**：
+
+- 未授权：静默失败，记录警告日志
+- 不在聊天室：静默失败，记录警告日志
+- 消息保存失败：记录错误日志
+
 ---
 
 ### 6.2 加入聊天室
@@ -557,13 +628,76 @@ client.heartbeat.incoming = 30000;  // 期望服务器心跳间隔
 2. 超过90秒未收到心跳的用户被标记为离线
 3. 向 `/topic/user.status` 广播离线状态
 
+**实现细节**：
+
+```java
+@Scheduled(fixedRate = 60000)
+public void checkHeartbeats() {
+    long currentTime = System.currentTimeMillis();
+    long timeout = 90000;
+    
+    userLastHeartbeat.forEach((userId, lastHeartbeat) -> {
+        if (currentTime - lastHeartbeat > timeout) {
+            userService.updateUserStatus(userId, User.UserStatus.OFFLINE);
+            messagingTemplate.convertAndSend("/topic/user.status", Map.of(
+                    "userId", userId,
+                    "status", "OFFLINE"
+            ));
+            userLastHeartbeat.remove(userId);
+        }
+    });
+}
+```
+
+**心跳更新时机**：
+
+- 用户发送任何消息时自动更新心跳
+- 用户调用 `/app/heartbeat` 时更新心跳
+- 用户加入/离开聊天室时更新心跳
+
 ---
 
 ## 8. 事件通知
 
 ### 8.1 连接事件
 
-#### 连接成功
+#### 服务器端连接处理
+
+当用户成功连接 WebSocket 时，服务器执行以下操作：
+
+1. 从 STOMP CONNECT 帧获取用户信息
+2. 验证 JWT Token
+3. 将用户 ID 存储到 Session 映射
+4. 初始化用户心跳时间
+5. 更新用户状态为 ONLINE
+6. 向 `/topic/user.status` 广播用户上线
+
+**服务器代码**：
+
+```java
+@EventListener
+public void handleWebSocketConnectListener(SessionConnectedEvent event) {
+    StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
+    
+    if (headerAccessor.getUser() != null) {
+        String username = headerAccessor.getUser().getName();
+        UserDTO user = userService.getUserByUsername(username);
+        
+        sessionUserMap.put(headerAccessor.getSessionId(), user.getId());
+        userLastHeartbeat.put(user.getId(), System.currentTimeMillis());
+        
+        userService.updateUserStatus(user.getId(), User.UserStatus.ONLINE);
+        
+        messagingTemplate.convertAndSend("/topic/user.status", Map.of(
+                "userId", user.getId(),
+                "status", "ONLINE",
+                "username", user.getUsername()
+        ));
+    }
+}
+```
+
+#### 客户端连接成功
 
 ```javascript
 stompClient.connect(headers, function(frame) {
@@ -585,13 +719,39 @@ stompClient.connect(headers, function(frame) {
 
 ### 8.2 断开事件
 
-#### 服务器端事件
+#### 服务器端断开处理
 
-服务器在用户断开连接时：
+当用户断开 WebSocket 连接时，服务器执行以下操作：
 
 1. 从 Session 映射中移除用户
-2. 更新用户状态为 OFFLINE
-3. 广播用户离线状态
+2. 从心跳映射中移除用户
+3. 更新用户状态为 OFFLINE
+4. 向 `/topic/user.status` 广播用户离线
+
+**服务器代码**：
+
+```java
+@EventListener
+public void handleWebSocketDisconnectListener(SessionDisconnectEvent event) {
+    StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
+    
+    if (headerAccessor.getUser() != null) {
+        String username = headerAccessor.getUser().getName();
+        UserDTO user = userService.getUserByUsername(username);
+        
+        sessionUserMap.remove(headerAccessor.getSessionId());
+        userLastHeartbeat.remove(user.getId());
+        
+        userService.updateUserStatus(user.getId(), User.UserStatus.OFFLINE);
+        
+        messagingTemplate.convertAndSend("/topic/user.status", Map.of(
+                "userId", user.getId(),
+                "status", "OFFLINE",
+                "username", user.getUsername()
+        ));
+    }
+}
+```
 
 #### 客户端处理
 

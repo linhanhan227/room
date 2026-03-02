@@ -1,5 +1,6 @@
 package com.chat.room.dto;
 
+import com.chat.room.entity.RoomMember;
 import com.chat.room.entity.User;
 import lombok.*;
 
@@ -18,6 +19,8 @@ public class UserDTO {
     private String avatar;
     private User.UserStatus status;
     private User.UserRole role;
+    private RoomMember.MemberRole roomRole;
+    private Boolean muted;
     private LocalDateTime createdAt;
 
     public static UserDTO fromEntity(User user) {
