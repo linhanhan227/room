@@ -10,6 +10,12 @@
 -- 2. 从 v1.0.0 升级时，请使用 upgrade_v1.1.0.sql
 -- =============================================
 
+SET NAMES utf8mb4;
+SET CHARACTER SET utf8mb4;
+SET character_set_connection=utf8mb4;
+SET character_set_client=utf8mb4;
+SET character_set_results=utf8mb4;
+
 -- =============================================
 -- 1. 用户表 (users)
 -- =============================================
@@ -17,7 +23,7 @@ CREATE TABLE IF NOT EXISTS `users` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '用户ID',
     `username` VARCHAR(50) NOT NULL COMMENT '用户名',
     `password` VARCHAR(255) NOT NULL COMMENT '密码',
-    `nickname` VARCHAR(50) DEFAULT NULL COMMENT '昵称',
+    `nickname` VARCHAR(100) DEFAULT NULL COMMENT '昵称',
     `email` VARCHAR(100) DEFAULT NULL COMMENT '邮箱',
     `avatar` VARCHAR(255) DEFAULT NULL COMMENT '头像',
     `status` VARCHAR(20) DEFAULT 'OFFLINE' COMMENT '状态: ONLINE/OFFLINE/BUSY/AWAY',
@@ -265,26 +271,6 @@ CREATE TABLE IF NOT EXISTS `email_send_logs` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='邮件发送日志表';
 
 -- =============================================
--- 初始化数据
--- =============================================
-
--- 插入默认管理员用户 (用户名: admin, 密码: admin123)
--- 注意: 实际使用时应该使用BCrypt加密的密码
-INSERT INTO `users` (`username`, `password`, `nickname`, `email`, `status`, `role`, `created_at`, `updated_at`)
-VALUES ('admin', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '系统管理员', 'admin@example.com', 'OFFLINE', 'ADMIN', NOW(), NOW())
-ON DUPLICATE KEY UPDATE `username` = `username`;
-
--- 插入测试用户 (用户名: test, 密码: test123)
-INSERT INTO `users` (`username`, `password`, `nickname`, `email`, `status`, `role`, `created_at`, `updated_at`)
-VALUES ('test', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', '测试用户', 'test@example.com', 'OFFLINE', 'USER', NOW(), NOW())
-ON DUPLICATE KEY UPDATE `username` = `username`;
-
--- 插入系统公告
-INSERT INTO `announcements` (`title`, `content`, `type`, `priority`, `author_id`, `is_published`, `publish_at`, `view_count`, `created_at`, `updated_at`)
-VALUES ('欢迎使用聊天室系统', '欢迎来到我们的聊天室系统！请遵守社区规则，文明交流。', 'NORMAL', 'NORMAL', 1, TRUE, NOW(), 0, NOW(), NOW())
-ON DUPLICATE KEY UPDATE `title` = `title`;
-
--- =============================================
 -- 脚本执行完成
 -- =============================================
 -- 
@@ -293,6 +279,8 @@ ON DUPLICATE KEY UPDATE `title` = `title`;
 -- 1. 新增 room_members.muted_until 字段（禁言到期时间）
 -- 2. 新增 room_blacklist 表（聊天室黑名单）
 -- 3. 新增相关索引优化查询性能
+-- 4. [修复] users.nickname 列长度由 VARCHAR(50) 调整为 VARCHAR(100)
+-- 5. [修复] 移除冗余的 ALTER TABLE 语句，避免导入顺序问题
 -- 
 -- 验证升级:
 -- 1. 检查 room_members 表是否有 muted_until 字段
