@@ -1,0 +1,211 @@
+# =============================================
+# Spring Boot 核心配置
+# =============================================
+spring:
+  application:
+    name: chat-room  # 应用名称
+  
+  # =============================================
+  # 数据源配置
+  # =============================================
+  datasource:
+    url: jdbc:mysql://localhost:3306/chat_room?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&characterEncoding=UTF-8  # 数据库连接URL
+    username: root  # 数据库用户名
+    password: root  # 数据库密码
+    driver-class-name: com.mysql.cj.jdbc.Driver  # MySQL驱动类
+    hikari:
+      maximum-pool-size: 20  # 最大连接数
+      minimum-idle: 5  # 最小空闲连接数
+      idle-timeout: 300000  # 空闲连接超时时间(毫秒)
+      connection-timeout: 20000  # 连接超时时间(毫秒)
+  
+  # =============================================
+  # JPA/Hibernate 配置
+  # =============================================
+  jpa:
+    hibernate:
+      ddl-auto: update  # DDL模式: create/create-drop/update/validate/none
+    show-sql: false  # 是否显示SQL语句
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect  # 数据库方言
+        format_sql: true  # 格式化SQL
+  
+  # =============================================
+  # Jackson JSON 配置
+  # =============================================
+  jackson:
+    time-zone: GMT+8  # 时区设置
+    date-format: yyyy-MM-dd HH:mm:ss  # 日期格式
+    serialization:
+      write-dates-as-timestamps: false  # 是否将日期写为时间戳
+  
+  # =============================================
+  # 邮件配置
+  # =============================================
+  mail:
+    host: smtp.example.com  # SMTP服务器地址
+    port: 465  # SMTP端口 (SSL使用465端口)
+    username: your-email@example.com  # 邮箱账号
+    password: your-email-password  # 邮箱密码/授权码
+    properties:
+      mail:
+        smtp:
+          auth: true  # 启用SMTP认证
+          ssl:
+            enable: true  # 启用SSL加密
+            trust: smtp.example.com  # 信任SMTP服务器
+          connectiontimeout: 60000  # 连接超时(毫秒)
+          timeout: 60000  # 发送超时(毫秒)
+          writetimeout: 60000  # 写入超时(毫秒)
+          connectionpool: true  # 启用连接池
+          connectionpoolsize: 10  # 连接池大小
+          connectionpooltimeout: 10000  # 连接池超时(毫秒)
+          # STARTTLS配置 (SSL 465端口不需要STARTTLS，已注释)
+          # starttls:
+          #   enable: true  # 启用STARTTLS加密
+          #   required: true  # 强制使用STARTTLS
+        debug: false  # 是否启用SMTP调试
+    default-encoding: UTF-8  # 默认编码
+
+# =============================================
+# 服务器配置
+# =============================================
+server:
+  port: 8080  # 服务端口
+  servlet:
+    context-path: /api  # 应用上下文路径
+
+# =============================================
+# 应用自定义配置
+# =============================================
+app:
+  # -------------------------------------------
+  # JWT Token 配置
+  # -------------------------------------------
+  jwt:
+    secret: your-256-bit-secret-key-for-jwt-token-generation-must-be-long-enough  # JWT密钥(至少256位)
+    expiration: 86400000  # Token过期时间(毫秒), 默认24小时
+    header: Authorization  # Token请求头名称
+    prefix: "Bearer "  # Token前缀
+  
+  # -------------------------------------------
+  # 邮件服务配置
+  # -------------------------------------------
+  email:
+    from: noreply@example.com  # 发件人邮箱地址
+    verification:
+      subject: 邮箱验证码 - 聊天室  # 验证码邮件主题
+      code-expiration: 300  # 验证码有效期(秒), 默认5分钟
+      code-length: 6  # 验证码长度
+      max-send-per-hour: 5  # 每小时最大发送次数
+      send-interval-seconds: 60  # 发送间隔(秒)
+    daily-limit:
+      enabled: true  # 是否启用每日发送限制
+      max-count: 10  # 每日最大发送次数
+      reset-hour: 0  # 重置时间(小时, 0-23)
+  
+  # -------------------------------------------
+  # 敏感词过滤配置
+  # -------------------------------------------
+  sensitive-word:
+    file-path: sensitive_words.txt  # 敏感词文件路径
+    enabled: true  # 是否启用敏感词过滤
+    algorithm: AC  # 过滤算法: KMP(单模式匹配)/TRIE(前缀树)/AC(自动机,推荐)
+    replacement: "***"  # 敏感词替换文本
+    auto-reload: true  # 是否自动重新加载
+    reload-interval: 300000  # 重新加载间隔(毫秒), 默认5分钟
+  
+  # -------------------------------------------
+  # WebSocket 配置
+  # -------------------------------------------
+  web-socket:
+    endpoint: /ws  # WebSocket端点路径
+    heartbeat-interval: 30000  # 心跳间隔(毫秒), 默认30秒
+    heartbeat-timeout: 90000  # 心跳超时(毫秒), 默认90秒
+    message-size-limit: 131072  # 消息大小限制(字节), 默认128KB
+    send-buffer-size-limit: 524288  # 发送缓冲区大小(字节), 默认512KB
+    send-time-limit: 20000  # 发送超时(毫秒), 默认20秒
+    time-to-first-message: 30000  # 首条消息超时(毫秒), 默认30秒
+    allowed-origins:  # 允许的跨域来源
+      - "*"
+  
+  # -------------------------------------------
+  # CORS 跨域配置
+  # -------------------------------------------
+  cors:
+    allowed-origin-patterns:  # 允许的来源模式(支持通配符，兼容allowCredentials)
+      - "*"
+    allowed-methods:  # 允许的HTTP方法
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - OPTIONS
+      - PATCH
+    allowed-headers:  # 允许的请求头
+      - "*"
+    allow-credentials: true  # 是否允许携带凭证(Cookies)
+    max-age: 3600  # 预检请求缓存时间(秒)
+  
+  # -------------------------------------------
+  # 聊天室配置
+  # -------------------------------------------
+  chat-room:
+    max-members: 100  # 聊天室最大成员数
+    max-rooms-per-user: 10  # 每个用户最大创建聊天室数
+    message-page-size: 50  # 消息分页大小
+    max-message-length: 5000  # 消息最大长度
+    allow-private-rooms: true  # 是否允许创建私密聊天室
+    allow-room-password: true  # 是否允许设置聊天室密码
+  
+  # -------------------------------------------
+  # 文件上传配置
+  # -------------------------------------------
+  file-upload:
+    max-size: 10485760  # 最大文件大小(字节), 默认10MB
+    allowed-types:  # 允许的文件类型
+      - image/jpeg
+      - image/png
+      - image/gif
+      - image/webp
+    upload-path: uploads  # 上传文件保存路径
+    enable-image-upload: false  # 是否启用图片上传功能
+  
+  # -------------------------------------------
+  # 安全配置
+  # -------------------------------------------
+  security:
+    password-min-length: 6  # 密码最小长度
+    password-max-length: 20  # 密码最大长度
+    password-require-uppercase: false  # 密码是否需要大写字母
+    password-require-lowercase: true  # 密码是否需要小写字母
+    password-require-digit: false  # 密码是否需要数字
+    password-require-special: false  # 密码是否需要特殊字符
+    username-min-length: 3  # 用户名最小长度
+    username-max-length: 20  # 用户名最大长度
+    login-max-attempts: 5  # 最大登录尝试次数
+    login-lock-duration: 1800000  # 登录锁定时长(毫秒), 默认30分钟
+  
+  # -------------------------------------------
+  # 聊天室推荐算法配置
+  # -------------------------------------------
+  room-recommendation:
+    enabled: true  # 是否启用推荐功能
+    default-strategy: HYBRID  # 默认推荐策略: ACTIVITY/POPULARITY/NEWEST/RANDOM/HYBRID
+    recommendation-limit: 10  # 默认推荐数量
+    cache-duration: 300  # 推荐结果缓存时间(秒)
+    hybrid-weights:  # 混合策略权重配置(仅当default-strategy=HYBRID时生效)
+      activity-weight: 0.3  # 活跃度权重
+      popularity-weight: 0.3  # 热度权重
+      newest-weight: 0.2  # 最新权重
+      random-weight: 0.2  # 随机权重
+
+# =============================================
+# 日志配置
+# =============================================
+logging:
+  level:
+    com.chat.room: DEBUG  # 应用日志级别
+    org.springframework.web: DEBUG  # Spring Web日志级别
+    org.hibernate.SQL: DEBUG  # Hibernate SQL日志级别
