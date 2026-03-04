@@ -15,9 +15,10 @@ spring:
     console:
       enabled: true
 
-jwt:
-  secret: test-secret-key-for-jwt-token-generation-must-be-long-enough-for-testing
-  expiration: 86400000
+app:
+  jwt:
+    secret: test-secret-key-for-jwt-token-generation-must-be-long-enough-for-testing
+    expiration: 86400000
 
 server:
   port: 0

@@ -6,6 +6,7 @@ import com.chat.room.dto.RegisterRequest;
 import com.chat.room.dto.UserDTO;
 import com.chat.room.entity.User;
 import com.chat.room.exception.BusinessException;
+import com.chat.room.repository.BannedUserRepository;
 import com.chat.room.repository.UserRepository;
 import com.chat.room.security.JwtTokenProvider;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,6 +32,9 @@ class UserServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private BannedUserRepository bannedUserRepository;
 
     @Mock
     private PasswordEncoder passwordEncoder;

@@ -6,9 +6,11 @@ import com.chat.room.entity.ChatRoom;
 import com.chat.room.entity.Message;
 import com.chat.room.entity.User;
 import com.chat.room.exception.BusinessException;
+import com.chat.room.repository.BannedUserRepository;
 import com.chat.room.repository.ChatRoomRepository;
 import com.chat.room.repository.MessageRepository;
 import com.chat.room.repository.UserRepository;
+import com.chat.room.security.UserPrincipal;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -42,6 +44,15 @@ class MessageServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private BannedUserRepository bannedUserRepository;
+
+    @Mock
+    private SensitiveWordService sensitiveWordService;
+
+    @Mock
+    private RoomMemberManagementService roomMemberManagementService;
 
     @InjectMocks
     private MessageService messageService;
@@ -79,7 +90,7 @@ class MessageServiceTest {
 
         Authentication authentication = mock(Authentication.class);
         SecurityContext securityContext = mock(SecurityContext.class);
-        when(securityContext.getAuthentication()).thenReturn(authentication);
+        lenient().when(securityContext.getAuthentication()).thenReturn(authentication);
         SecurityContextHolder.setContext(securityContext);
     }
 
@@ -155,12 +166,8 @@ class MessageServiceTest {
 
     private void mockCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        when(authentication.getPrincipal()).thenReturn(
-                new org.springframework.security.core.userdetails.User(
-                        "testuser", "password", List.of()
-                )
-        );
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        UserPrincipal principal = UserPrincipal.create(testUser);
+        when(authentication.getPrincipal()).thenReturn(principal);
         when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
     }
 }
