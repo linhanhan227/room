@@ -26,6 +26,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import com.chat.room.security.UserPrincipal;
+
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -174,14 +176,89 @@ class ChatRoomServiceTest {
         assertEquals(1, result.getTotalElements());
     }
 
-    private void mockCurrentUser() {
+    @Test
+    @DisplayName("Admin should join private room without password")
+    void joinRoom_AdminBypassesPassword() {
+        User adminUser = User.builder()
+                .id(2L)
+                .username("admin")
+                .role(User.UserRole.ADMIN)
+                .rooms(new HashSet<>())
+                .build();
+        ChatRoom privateRoom = ChatRoom.builder()
+                .id(2L)
+                .name("Private Room")
+                .owner(testUser)
+                .type(ChatRoom.RoomType.PRIVATE)
+                .password("secret")
+                .status(ChatRoom.RoomStatus.ACTIVE)
+                .members(new HashSet<>())
+                .build();
+
+        mockCurrentUserAs(adminUser);
+        when(chatRoomRepository.findById(2L)).thenReturn(Optional.of(privateRoom));
+        when(roomMemberRepository.existsByRoomIdAndUserId(2L, 2L)).thenReturn(false);
+        when(chatRoomRepository.countMembersByRoomId(2L)).thenReturn(1);
+        when(roomMemberRepository.save(any(RoomMember.class))).thenReturn(null);
+
+        assertDoesNotThrow(() -> chatRoomService.joinRoom(2L, null));
+
+        verify(roomMemberRepository).save(any(RoomMember.class));
+    }
+
+    @Test
+    @DisplayName("Non-admin should fail to join private room without correct password")
+    void joinRoom_NonAdminWrongPassword() {
+        ChatRoom privateRoom = ChatRoom.builder()
+                .id(2L)
+                .name("Private Room")
+                .owner(testUser)
+                .type(ChatRoom.RoomType.PRIVATE)
+                .password("secret")
+                .status(ChatRoom.RoomStatus.ACTIVE)
+                .members(new HashSet<>())
+                .build();
+
+        mockCurrentUser();
+        when(chatRoomRepository.findById(2L)).thenReturn(Optional.of(privateRoom));
+
+        assertThrows(BusinessException.class, () -> chatRoomService.joinRoom(2L, "wrong"));
+
+        verify(roomMemberRepository, never()).save(any(RoomMember.class));
+    }
+
+    @Test
+    @DisplayName("Non-admin should join private room with correct password")
+    void joinRoom_NonAdminCorrectPassword() {
+        ChatRoom privateRoom = ChatRoom.builder()
+                .id(2L)
+                .name("Private Room")
+                .owner(testUser)
+                .type(ChatRoom.RoomType.PRIVATE)
+                .password("secret")
+                .status(ChatRoom.RoomStatus.ACTIVE)
+                .members(new HashSet<>())
+                .build();
+
+        mockCurrentUser();
+        when(chatRoomRepository.findById(2L)).thenReturn(Optional.of(privateRoom));
+        when(roomMemberRepository.existsByRoomIdAndUserId(2L, 1L)).thenReturn(false);
+        when(chatRoomRepository.countMembersByRoomId(2L)).thenReturn(1);
+        when(roomMemberRepository.save(any(RoomMember.class))).thenReturn(null);
+
+        assertDoesNotThrow(() -> chatRoomService.joinRoom(2L, "secret"));
+
+        verify(roomMemberRepository).save(any(RoomMember.class));
+    }
+
+    private void mockCurrentUserAs(User user) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        when(authentication.getPrincipal()).thenReturn(
-                new org.springframework.security.core.userdetails.User(
-                        "testuser", "password", List.of()
-                )
-        );
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
-        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+        UserPrincipal principal = UserPrincipal.create(user);
+        when(authentication.getPrincipal()).thenReturn(principal);
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+    }
+
+    private void mockCurrentUser() {
+        mockCurrentUserAs(testUser);
     }
 }

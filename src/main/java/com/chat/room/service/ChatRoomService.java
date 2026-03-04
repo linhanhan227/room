@@ -78,7 +78,7 @@ public class ChatRoomService {
             throw new BusinessException("聊天室未激活");
         }
 
-        if (room.getType() == ChatRoom.RoomType.PRIVATE) {
+        if (room.getType() == ChatRoom.RoomType.PRIVATE && user.getRole() != User.UserRole.ADMIN) {
             if (password == null || !java.util.Objects.equals(password, room.getPassword())) {
                 throw new BusinessException("聊天室密码错误");
             }
