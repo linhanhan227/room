@@ -42,18 +42,21 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         long heartbeatInterval = appProperties.getWebSocket().getHeartbeatInterval();
         String endpoint = appProperties.getWebSocket().getEndpoint();
-        
-        // SockJS 端点（带 HTTP 握手拦截器）
-        registry.addEndpoint(endpoint)
-                .addInterceptors(webSocketHandshakeInterceptor)
-                .setAllowedOriginPatterns(appProperties.getWebSocket().getAllowedOrigins())
-                .withSockJS()
-                .setHeartbeatTime(heartbeatInterval);
-        
-        // 原生 WebSocket 端点（带 HTTP 握手拦截器）
-        registry.addEndpoint(endpoint)
-                .addInterceptors(webSocketHandshakeInterceptor)
-                .setAllowedOriginPatterns(appProperties.getWebSocket().getAllowedOrigins());
+        boolean sockJsEnabled = appProperties.getWebSocket().isSockJsEnabled();
+
+        if (sockJsEnabled) {
+            // SockJS 端点（支持 HTTP 回退，可通过 HTTP 访问）
+            registry.addEndpoint(endpoint)
+                    .addInterceptors(webSocketHandshakeInterceptor)
+                    .setAllowedOriginPatterns(appProperties.getWebSocket().getAllowedOrigins())
+                    .withSockJS()
+                    .setHeartbeatTime(heartbeatInterval);
+        } else {
+            // 原生 WebSocket 端点（仅支持 ws:// 协议）
+            registry.addEndpoint(endpoint)
+                    .addInterceptors(webSocketHandshakeInterceptor)
+                    .setAllowedOriginPatterns(appProperties.getWebSocket().getAllowedOrigins());
+        }
     }
 
     @Override

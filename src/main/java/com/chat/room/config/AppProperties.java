@@ -66,6 +66,7 @@ public class AppProperties {
     @Data
     public static class WebSocket {
         private String endpoint = "/ws";
+        private boolean sockJsEnabled = true;  // 是否启用SockJS（false则使用原生WebSocket）
         private long heartbeatInterval = 30000;
         private long heartbeatTimeout = 90000;
         private int messageSizeLimit = 131072;

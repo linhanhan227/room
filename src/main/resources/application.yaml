@@ -121,6 +121,7 @@ app:
   # -------------------------------------------
   web-socket:
     endpoint: /ws  # WebSocket端点路径
+    sock-js-enabled: true  # 是否启用SockJS（true=SockJS支持HTTP回退, false=原生WebSocket可直接HTTP访问）
     heartbeat-interval: 30000  # 心跳间隔(毫秒), 默认30秒
     heartbeat-timeout: 90000  # 心跳超时(毫秒), 默认90秒
     message-size-limit: 131072  # 消息大小限制(字节), 默认128KB
