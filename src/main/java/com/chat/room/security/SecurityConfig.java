@@ -59,7 +59,10 @@ public class SecurityConfig {
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setExposedHeaders(Arrays.asList("Authorization", "Content-Type"));
-        configuration.setAllowCredentials(true);
+        // NOTE: allowCredentials cannot be used with a wildcard origin pattern.
+        // Credentials are disabled here to comply with the CORS specification.
+        // To enable credentials, replace the wildcard with explicit allowed origins.
+        configuration.setAllowCredentials(false);
         configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

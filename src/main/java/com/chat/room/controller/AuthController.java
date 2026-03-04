@@ -2,12 +2,14 @@ package com.chat.room.controller;
 
 import com.chat.room.dto.*;
 import com.chat.room.service.UserService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -32,8 +34,13 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<Void>> logout() {
-        userService.logout(userService.getCurrentUserId());
+    public ResponseEntity<ApiResponse<Void>> logout(HttpServletRequest request) {
+        String token = null;
+        String bearerToken = request.getHeader("Authorization");
+        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
+            token = bearerToken.substring(7);
+        }
+        userService.logout(userService.getCurrentUserId(), token);
         return ResponseEntity.ok(ApiResponse.success("登出成功", null));
     }
 }

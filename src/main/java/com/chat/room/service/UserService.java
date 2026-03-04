@@ -1,5 +1,6 @@
 package com.chat.room.service;
 
+import com.chat.room.config.AppProperties;
 import com.chat.room.dto.*;
 import com.chat.room.entity.User;
 import com.chat.room.exception.BusinessException;
@@ -7,6 +8,8 @@ import com.chat.room.exception.ResourceNotFoundException;
 import com.chat.room.repository.BannedUserRepository;
 import com.chat.room.repository.UserRepository;
 import com.chat.room.security.JwtTokenProvider;
+import com.chat.room.security.LoginAttemptService;
+import com.chat.room.security.TokenBlacklist;
 import com.chat.room.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +37,9 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
     private final AuthenticationManager authenticationManager;
+    private final TokenBlacklist tokenBlacklist;
+    private final LoginAttemptService loginAttemptService;
+    private final AppProperties appProperties;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -68,14 +74,30 @@ public class UserService {
 
     @Transactional
     public AuthResponse login(LoginRequest request) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
-        );
+        String username = request.getUsername();
 
+        int maxAttempts = appProperties.getSecurity().getLoginMaxAttempts();
+        long lockDuration = appProperties.getSecurity().getLoginLockDuration();
+
+        if (loginAttemptService.isLocked(username)) {
+            throw new BusinessException("账户已被临时锁定，请稍后再试");
+        }
+
+        Authentication authentication;
+        try {
+            authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(username, request.getPassword())
+            );
+        } catch (Exception e) {
+            loginAttemptService.loginFailed(username, maxAttempts, lockDuration);
+            throw e;
+        }
+
+        loginAttemptService.loginSucceeded(username);
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        User user = userRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with username: " + request.getUsername()));
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with username: " + username));
 
         if (bannedUserRepository.isUserBanned(user.getId(), LocalDateTime.now())) {
             throw new BusinessException("您的账户已被封禁");
@@ -95,11 +117,14 @@ public class UserService {
     }
 
     @Transactional
-    public void logout(Long userId) {
+    public void logout(Long userId, String token) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", userId));
         user.setStatus(User.UserStatus.OFFLINE);
         userRepository.save(user);
+        if (token != null) {
+            tokenBlacklist.revoke(token, tokenProvider.getExpirationDateFromToken(token));
+        }
     }
 
     public UserDTO getCurrentUser() {
@@ -183,6 +208,12 @@ public class UserService {
     public Long getCurrentUserId() {
         UserPrincipal principal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         return principal.getId();
+    }
+
+    public boolean isCurrentUserAdmin() {
+        UserPrincipal principal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        return principal.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
     }
 
     public boolean isUserBanned(Long userId) {

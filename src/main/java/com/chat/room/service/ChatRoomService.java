@@ -19,6 +19,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +35,7 @@ public class ChatRoomService {
     private final UserRepository userRepository;
     private final RoomMemberRepository roomMemberRepository;
     private final MessageRepository messageRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Transactional
     public ChatRoomDTO createRoom(CreateRoomRequest request) {
@@ -49,7 +51,7 @@ public class ChatRoomService {
                 .avatar(request.getAvatar())
                 .owner(owner)
                 .type(request.getType() != null ? ChatRoom.RoomType.valueOf(request.getType().toUpperCase()) : ChatRoom.RoomType.PUBLIC)
-                .password(request.getPassword() != null ? request.getPassword() : null)
+                .password(request.getPassword() != null ? passwordEncoder.encode(request.getPassword()) : null)
                 .maxMembers(request.getMaxMembers() != null ? request.getMaxMembers() : 100)
                 .status(ChatRoom.RoomStatus.ACTIVE)
                 .build();
@@ -79,7 +81,7 @@ public class ChatRoomService {
         }
 
         if (room.getType() == ChatRoom.RoomType.PRIVATE) {
-            if (password == null || !java.util.Objects.equals(password, room.getPassword())) {
+            if (password == null || room.getPassword() == null || !passwordEncoder.matches(password, room.getPassword())) {
                 throw new BusinessException("聊天室密码错误");
             }
         }

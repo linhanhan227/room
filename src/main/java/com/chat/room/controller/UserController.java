@@ -2,6 +2,7 @@ package com.chat.room.controller;
 
 import com.chat.room.dto.*;
 import com.chat.room.entity.User;
+import com.chat.room.exception.ForbiddenException;
 import com.chat.room.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -71,9 +72,8 @@ public class UserController {
 
     @PutMapping("/me/password")
     public ResponseEntity<ApiResponse<Void>> changePassword(
-            @RequestParam String oldPassword,
-            @RequestParam String newPassword) {
-        userService.changePassword(userService.getCurrentUserId(), oldPassword, newPassword);
+            @Valid @RequestBody ChangePasswordRequest request) {
+        userService.changePassword(userService.getCurrentUserId(), request.getOldPassword(), request.getNewPassword());
         return ResponseEntity.ok(ApiResponse.success("密码修改成功", null));
     }
 
@@ -81,6 +81,10 @@ public class UserController {
     public ResponseEntity<ApiResponse<UserDTO>> updateUserStatus(
             @PathVariable Long id,
             @RequestParam User.UserStatus status) {
+        Long currentUserId = userService.getCurrentUserId();
+        if (!currentUserId.equals(id) && !userService.isCurrentUserAdmin()) {
+            throw new ForbiddenException("您没有权限修改其他用户的状态");
+        }
         UserDTO user = userService.updateUserStatus(id, status);
         return ResponseEntity.ok(ApiResponse.success("状态更新成功", user));
     }

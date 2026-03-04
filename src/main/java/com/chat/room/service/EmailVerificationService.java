@@ -3,6 +3,7 @@ package com.chat.room.service;
 import com.chat.room.config.AppProperties;
 import com.chat.room.entity.EmailVerification;
 import com.chat.room.entity.User;
+import com.chat.room.exception.BusinessException;
 import com.chat.room.repository.EmailVerificationRepository;
 import com.chat.room.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -98,7 +99,7 @@ public class EmailVerificationService {
     private void validateEmailRequest(String email, EmailVerification.VerificationType type) {
         if (type == EmailVerification.VerificationType.REGISTER) {
             if (userRepository.existsByEmail(email)) {
-                throw new RuntimeException("该邮箱已被注册");
+                throw new BusinessException("该邮箱已被注册");
             }
         }
 
@@ -106,7 +107,7 @@ public class EmailVerificationService {
         long recentCount = verificationRepository.countByEmailAndCreatedAtAfter(
                 email, LocalDateTime.now().minusHours(1));
         if (recentCount >= maxSendPerHour) {
-            throw new RuntimeException("发送验证码次数过多，请1小时后再试");
+            throw new BusinessException("发送验证码次数过多，请1小时后再试");
         }
 
         Optional<EmailVerification> lastVerification = verificationRepository
@@ -120,7 +121,7 @@ public class EmailVerificationService {
             
             if (secondsSinceLastSent < sendIntervalSeconds) {
                 long waitSeconds = sendIntervalSeconds - secondsSinceLastSent;
-                throw new RuntimeException("请等待" + waitSeconds + "秒后再发送验证码");
+                throw new BusinessException("请等待" + waitSeconds + "秒后再发送验证码");
             }
         }
     }

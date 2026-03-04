@@ -145,7 +145,9 @@ app:
       - PATCH
     allowed-headers:  # 允许的请求头
       - "*"
-    allow-credentials: true  # 是否允许携带凭证(Cookies)
+    # NOTE: allow-credentials cannot be true when allowed-origins contains "*".
+    # Set specific origins (e.g. "http://localhost:3000") to enable credentials.
+    allow-credentials: false  # 不允许携带凭证(Cookies)（与通配符来源不兼容）
     max-age: 3600  # 预检请求缓存时间(秒)
   
   # -------------------------------------------

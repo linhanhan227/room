@@ -1,5 +1,6 @@
 package com.chat.room.dto;
 
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.*;
@@ -21,6 +22,7 @@ public class RegisterRequest {
     @Size(max = 50, message = "Nickname must be less than 50 characters")
     private String nickname;
 
+    @Email(message = "Email format is invalid")
     @Size(max = 100, message = "Email must be less than 100 characters")
     private String email;
 }
