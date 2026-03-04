@@ -148,10 +148,14 @@ public class WebSocketChatHandler {
         try {
             if (headerAccessor.getUser() != null) {
                 String username = headerAccessor.getUser().getName();
-                return userService.getUserByUsername(username) != null ? 
-                        User.builder().id(userService.getUserByUsername(username).getId())
-                                .nickname(userService.getUserByUsername(username).getNickname())
-                                .username(username).build() : null;
+                UserDTO userDTO = userService.getUserByUsername(username);
+                if (userDTO != null) {
+                    return User.builder()
+                            .id(userDTO.getId())
+                            .nickname(userDTO.getNickname())
+                            .username(username)
+                            .build();
+                }
             }
         } catch (Exception e) {
             log.error("Error getting user from session: {}", e.getMessage());
